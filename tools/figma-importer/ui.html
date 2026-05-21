@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--figma-color-bg);
+        color: var(--figma-color-text);
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        line-height: 24px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--figma-color-text-secondary);
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 300px;
+        resize: vertical;
+        border: 1px solid var(--figma-color-border);
+        border-radius: 6px;
+        padding: 8px;
+        background: var(--figma-color-bg);
+        color: var(--figma-color-text);
+        font: 11px / 16px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      input {
+        font-size: 12px;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      button {
+        border: 1px solid var(--figma-color-border);
+        border-radius: 6px;
+        padding: 8px 12px;
+        background: var(--figma-color-bg);
+        color: var(--figma-color-text);
+        font: inherit;
+      }
+
+      button.primary {
+        border-color: var(--figma-color-bg-brand);
+        background: var(--figma-color-bg-brand);
+        color: var(--figma-color-text-onbrand);
+      }
+
+      output {
+        min-height: 18px;
+        color: var(--figma-color-text-secondary);
+        font-size: 12px;
+        line-height: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div>
+        <h1>Cleo Prototype Flow Importer</h1>
+        <p>Drop the JSON exported from the prototype, or paste it below.</p>
+      </div>
+
+      <input id="file" type="file" accept="application/json,.json" />
+      <textarea id="payload" spellcheck="false" placeholder="Paste cleo-figma-flow JSON here"></textarea>
+
+      <div class="actions">
+        <button id="cancel" type="button">Cancel</button>
+        <button id="import" class="primary" type="button">Import flow</button>
+      </div>
+
+      <output id="status"></output>
+    </main>
+
+    <script>
+      const fileInput = document.getElementById('file');
+      const textarea = document.getElementById('payload');
+      const importButton = document.getElementById('import');
+      const cancelButton = document.getElementById('cancel');
+      const status = document.getElementById('status');
+
+      const setStatus = (message) => {
+        status.textContent = message;
+      };
+
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        textarea.value = await file.text();
+        setStatus(`Loaded ${file.name}`);
+      });
+
+      cancelButton.addEventListener('click', () => {
+        parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+      });
+
+      importButton.addEventListener('click', () => {
+        const payload = textarea.value.trim();
+        if (!payload) {
+          setStatus('Add an export payload first.');
+          return;
+        }
+
+        importButton.disabled = true;
+        setStatus('Importing...');
+        parent.postMessage({ pluginMessage: { type: 'import-flow', payload } }, '*');
+      });
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (!message) return;
+
+        if (message.type === 'import-complete') {
+          const fallbackCount = message.result.fontFallbacks ? message.result.fontFallbacks.length : 0;
+          if (fallbackCount) {
+            const first = message.result.fontFallbacks[0];
+            setStatus(
+              `Imported ${message.result.screens} screens, but ${fallbackCount} text styles fell back to Inter. ` +
+                `First missing font: ${first.exportedFontFamily}. Tried: ${first.triedFamilies.join(', ')}.`,
+            );
+          } else {
+            setStatus(`Imported ${message.result.screens} screens and ${message.result.layers} layers.`);
+          }
+          importButton.disabled = false;
+        }
+
+        if (message.type === 'import-error') {
+          setStatus(message.error);
+          importButton.disabled = false;
+        }
+      };
+    </script>
+  </body>
+</html>
