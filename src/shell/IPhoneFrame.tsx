@@ -3,7 +3,16 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LineIcon } from '../design-system/components';
 import { DesignSystemGallery } from '../design-system/gallery/DesignSystemGallery';
 import { useTheme } from '../design-system/theme';
-import { colors, Radii, Spacing } from '../design-system/tokens';
+import {
+  BorderWidth,
+  colors,
+  fontFamilies,
+  fontWeights,
+  Radii,
+  Spacing,
+  typographyLineHeightMap,
+  typographySizeMap,
+} from '../design-system/tokens';
 import { FRAME_PRESETS, useFrame } from './FrameProvider';
 import type { FramePreset } from './FrameProvider';
 import { useDoubleTap } from './useDoubleTap';
@@ -13,6 +22,30 @@ const FRAME_PADDING = Spacing.M;
 const SCREENSHOT_PIXEL_RATIO = 2;
 const SCREENSHOT_BUTTON_SIZE = Spacing.XL;
 const TOUCH_DEVICE_QUERY = '(pointer: coarse) and (hover: none)';
+const CONTENT_MAP_TOOLTIP_ID = 'content-map-tooltip';
+const FIGMA_EXPORT_TOOLTIP_ID = 'figma-export-tooltip';
+const SCREENSHOT_TOOLTIP_ID = 'screenshot-tooltip';
+const CONTENT_MAP_UNAVAILABLE_TOOLTIP =
+  'The Content Map will be available once you have at least two screens linked to each other.';
+const CONTENT_MAP_TOOLTIP = 'Open content map';
+const FIGMA_EXPORT_TOOLTIP = 'Export editable Figma flow';
+const SCREENSHOT_TOOLTIP = 'Download screenshot';
+const DISABLED_CONTROL_OPACITY = Spacing.S / Spacing.XL;
+const TOOLTIP_TEXT_SIZE = typographySizeMap.M.label ?? Spacing.XS;
+const TOOLTIP_TEXT_LINE_HEIGHT = typographyLineHeightMap.M.label ?? Spacing.S;
+const CONTROL_ORDER = {
+  figmaExport: Spacing.ZERO,
+  contentMap: Spacing.CHAT_BUBBLES,
+  screenshot: Spacing.XXXXS,
+} as const;
+
+type IPhoneFrameProps = {
+  children: React.ReactNode;
+  onOpenContentMap?: () => void;
+  contentMapAvailable?: boolean;
+  onExportFigmaFlow?: () => void;
+  isExportingFigmaFlow?: boolean;
+};
 
 const getScreenshotFileName = () => {
   const routeName = window.location.pathname.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-') || 'home';
@@ -31,7 +64,43 @@ const downloadBlob = (blob: Blob, fileName: string) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 };
 
-export const IPhoneFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ControlTooltip: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => (
+  <div
+    id={id}
+    role="tooltip"
+    className="absolute left-1/2 z-50 rounded-TOOLTIP bg-primaryInverse p-XS"
+    style={{
+      bottom: `calc(100% + ${Spacing.XXS}px)`,
+      width: 'max-content',
+      maxWidth: Spacing.XXL * 5,
+      transform: 'translateX(-50%)',
+      border: `${BorderWidth.S}px solid var(--border-selectedInverse)`,
+      color: 'var(--content-primaryInverse)',
+    }}
+  >
+    <span
+      style={{
+        display: 'block',
+        fontFamily: fontFamilies.body,
+        fontSize: `${TOOLTIP_TEXT_SIZE}px`,
+        fontWeight: fontWeights.Regular,
+        lineHeight: `${TOOLTIP_TEXT_LINE_HEIGHT}px`,
+        textAlign: 'left',
+        whiteSpace: 'normal',
+      }}
+    >
+      {children}
+    </span>
+  </div>
+);
+
+export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
+  children,
+  onOpenContentMap,
+  contentMapAvailable = true,
+  onExportFigmaFlow,
+  isExportingFigmaFlow = false,
+}) => {
   const frame = useFrame();
   const preset = frame?.preset ?? 'medium';
   const setPreset = frame?.setPreset;
@@ -41,6 +110,9 @@ export const IPhoneFrame: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCapturing, setIsCapturing] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [presetMenuOpen, setPresetMenuOpen] = useState(false);
+  const [contentMapTooltipOpen, setContentMapTooltipOpen] = useState(false);
+  const [figmaExportTooltipOpen, setFigmaExportTooltipOpen] = useState(false);
+  const [screenshotTooltipOpen, setScreenshotTooltipOpen] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(TOUCH_DEVICE_QUERY).matches,
   );
@@ -122,6 +194,13 @@ export const IPhoneFrame: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const canOpenContentMap = Boolean(onOpenContentMap && contentMapAvailable);
+
+  const handleContentMapClick = () => {
+    if (!canOpenContentMap) return;
+    onOpenContentMap?.();
+  };
+
   const chromeProps = {
     onClick: handleChromeClick,
     onPointerDown: longPress.onPointerDown,
@@ -137,29 +216,109 @@ export const IPhoneFrame: React.FC<{ children: React.ReactNode }> = ({ children 
       className="fixed inset-0 flex flex-col items-center justify-center gap-S overflow-hidden"
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      <div ref={controlsRef} className="flex justify-center">
-        <motion.button
-          type="button"
-          onClick={handleScreenshot}
-          disabled={isCapturing}
-          whileHover={isCapturing ? undefined : { backgroundColor: 'var(--bg-tertiary)', scale: 1.04 }}
-          whileTap={isCapturing ? undefined : { scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          aria-label="Take screenshot"
-          className="inline-flex items-center justify-center"
-          style={{
-            width: SCREENSHOT_BUTTON_SIZE,
-            height: SCREENSHOT_BUTTON_SIZE,
-            borderRadius: Radii.ICON,
-            backgroundColor: 'var(--bg-accentLight)',
-            color: 'var(--content-primary)',
-            border: 'none',
-            cursor: isCapturing ? 'not-allowed' : 'pointer',
-            opacity: isCapturing ? 0.4 : 1,
-          }}
-        >
-          <LineIcon name="screenshot" size="S" color="currentColor" />
-        </motion.button>
+      <div ref={controlsRef} className="flex justify-center gap-XXS">
+        {onOpenContentMap && (
+          <div className="relative inline-flex" style={{ order: CONTROL_ORDER.contentMap }}>
+            <motion.button
+              type="button"
+              onClick={handleContentMapClick}
+              onMouseEnter={() => setContentMapTooltipOpen(true)}
+              onMouseLeave={() => setContentMapTooltipOpen(false)}
+              onFocus={() => setContentMapTooltipOpen(true)}
+              onBlur={() => setContentMapTooltipOpen(false)}
+              aria-label={canOpenContentMap ? 'Open content map' : 'Content map unavailable'}
+              aria-disabled={!canOpenContentMap}
+              aria-describedby={contentMapTooltipOpen ? CONTENT_MAP_TOOLTIP_ID : undefined}
+              whileHover={canOpenContentMap ? { backgroundColor: 'var(--bg-tertiary)', scale: 1.04 } : undefined}
+              whileTap={canOpenContentMap ? { scale: 0.92 } : undefined}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="inline-flex items-center justify-center"
+              style={{
+                width: SCREENSHOT_BUTTON_SIZE,
+                height: SCREENSHOT_BUTTON_SIZE,
+                borderRadius: Radii.ICON,
+                backgroundColor: 'var(--bg-accentLight)',
+                color: 'var(--content-primary)',
+                border: 'none',
+                cursor: canOpenContentMap ? 'pointer' : 'not-allowed',
+                opacity: canOpenContentMap ? 1 : DISABLED_CONTROL_OPACITY,
+              }}
+            >
+              <LineIcon name="share" size="S" color="currentColor" />
+            </motion.button>
+            {contentMapTooltipOpen && (
+              <ControlTooltip id={CONTENT_MAP_TOOLTIP_ID}>
+                {canOpenContentMap ? CONTENT_MAP_TOOLTIP : CONTENT_MAP_UNAVAILABLE_TOOLTIP}
+              </ControlTooltip>
+            )}
+          </div>
+        )}
+        {onExportFigmaFlow && (
+          <div className="relative inline-flex" style={{ order: CONTROL_ORDER.figmaExport }}>
+            <motion.button
+              type="button"
+              onClick={onExportFigmaFlow}
+              onMouseEnter={() => setFigmaExportTooltipOpen(!isExportingFigmaFlow)}
+              onMouseLeave={() => setFigmaExportTooltipOpen(false)}
+              onFocus={() => setFigmaExportTooltipOpen(!isExportingFigmaFlow)}
+              onBlur={() => setFigmaExportTooltipOpen(false)}
+              disabled={isExportingFigmaFlow}
+              whileHover={isExportingFigmaFlow ? undefined : { backgroundColor: 'var(--bg-tertiary)', scale: 1.04 }}
+              whileTap={isExportingFigmaFlow ? undefined : { scale: 0.92 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              aria-label="Export editable Figma flow"
+              aria-describedby={figmaExportTooltipOpen ? FIGMA_EXPORT_TOOLTIP_ID : undefined}
+              className="inline-flex items-center justify-center"
+              style={{
+                width: SCREENSHOT_BUTTON_SIZE,
+                height: SCREENSHOT_BUTTON_SIZE,
+                borderRadius: Radii.ICON,
+                backgroundColor: 'var(--bg-accentLight)',
+                color: 'var(--content-primary)',
+                border: 'none',
+                cursor: isExportingFigmaFlow ? 'not-allowed' : 'pointer',
+                opacity: isExportingFigmaFlow ? DISABLED_CONTROL_OPACITY : 1,
+              }}
+            >
+              <LineIcon name="download" size="S" color="currentColor" />
+            </motion.button>
+            {figmaExportTooltipOpen && (
+              <ControlTooltip id={FIGMA_EXPORT_TOOLTIP_ID}>{FIGMA_EXPORT_TOOLTIP}</ControlTooltip>
+            )}
+          </div>
+        )}
+        <div className="relative inline-flex" style={{ order: CONTROL_ORDER.screenshot }}>
+          <motion.button
+            type="button"
+            onClick={handleScreenshot}
+            onMouseEnter={() => setScreenshotTooltipOpen(!isCapturing)}
+            onMouseLeave={() => setScreenshotTooltipOpen(false)}
+            onFocus={() => setScreenshotTooltipOpen(!isCapturing)}
+            onBlur={() => setScreenshotTooltipOpen(false)}
+            disabled={isCapturing}
+            whileHover={isCapturing ? undefined : { backgroundColor: 'var(--bg-tertiary)', scale: 1.04 }}
+            whileTap={isCapturing ? undefined : { scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            aria-label="Take screenshot"
+            aria-describedby={screenshotTooltipOpen ? SCREENSHOT_TOOLTIP_ID : undefined}
+            className="inline-flex items-center justify-center"
+            style={{
+              width: SCREENSHOT_BUTTON_SIZE,
+              height: SCREENSHOT_BUTTON_SIZE,
+              borderRadius: Radii.ICON,
+              backgroundColor: 'var(--bg-accentLight)',
+              color: 'var(--content-primary)',
+              border: 'none',
+              cursor: isCapturing ? 'not-allowed' : 'pointer',
+              opacity: isCapturing ? 0.4 : 1,
+            }}
+          >
+            <LineIcon name="screenshot" size="S" color="currentColor" />
+          </motion.button>
+          {screenshotTooltipOpen && (
+            <ControlTooltip id={SCREENSHOT_TOOLTIP_ID}>{SCREENSHOT_TOOLTIP}</ControlTooltip>
+          )}
+        </div>
       </div>
 
       <div

@@ -1,0 +1,8 @@
+{
+  "name": "Cleo Prototype Flow Importer",
+  "id": "cleo-prototype-flow-importer",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"]
+}
