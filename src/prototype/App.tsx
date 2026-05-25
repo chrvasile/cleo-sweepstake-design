@@ -6,7 +6,7 @@ import { ContentMapOverlay, contentMapGraph, prototypeScreens } from './content-
 import { capturePrototypeFlow, downloadFigmaExport } from './figma-export';
 
 export const App: React.FC = () => (
-  <ThemeProvider initialTheme="light">
+  <ThemeProvider initialTheme="auto">
     <FrameProvider>
       <BrowserRouter>
         <PrototypeApp />
