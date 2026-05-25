@@ -83,7 +83,7 @@ const ControlTooltip: React.FC<{ id: string; children: React.ReactNode }> = ({ i
         display: 'block',
         fontFamily: fontFamilies.body,
         fontSize: `${TOOLTIP_TEXT_SIZE}px`,
-        fontWeight: fontWeights.Regular,
+        fontWeight: fontWeights.Medium,
         lineHeight: `${TOOLTIP_TEXT_LINE_HEIGHT}px`,
         textAlign: 'left',
         whiteSpace: 'normal',

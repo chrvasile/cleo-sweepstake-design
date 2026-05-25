@@ -1,5 +1,4 @@
 export const TypographyWeight = {
-  REGULAR: 'Regular',
   MEDIUM: 'Medium',
   SEMIBOLD: 'SemiBold',
   BOLD: 'Bold',
@@ -13,10 +12,9 @@ export const fontFamilies = {
 } as const;
 
 export const fontWeights = {
-  Regular: 400,
-  Medium: 500,
-  SemiBold: 600,
-  Bold: 700,
+  Medium: 530,
+  SemiBold: 700,
+  Bold: 800,
 } as const;
 
 export type TypographyType =
@@ -128,12 +126,12 @@ export const typographyDefaultWeights: Record<TypographyType, TypographyWeightNa
   display: 'Bold',
   displayNumbers: 'Bold',
   headline: 'Bold',
-  title: 'Regular',
+  title: 'Medium',
   titleStrong: 'Bold',
-  body: 'Regular',
+  body: 'Medium',
   bodyStrong: 'SemiBold',
-  bodyLink: 'Regular',
-  label: 'Regular',
+  bodyLink: 'Medium',
+  label: 'Medium',
   labelStrong: 'SemiBold',
   buttonLabel: 'SemiBold',
 };

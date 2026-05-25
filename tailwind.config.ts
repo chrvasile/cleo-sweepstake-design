@@ -57,7 +57,6 @@ const config: Config = {
         header: ['PPNeueMontreal-Bold', 'PPNeueMontreal', 'system-ui', 'sans-serif'],
       },
       fontWeight: {
-        Regular: String(fontWeights.Regular),
         Medium: String(fontWeights.Medium),
         SemiBold: String(fontWeights.SemiBold),
         Bold: String(fontWeights.Bold),
