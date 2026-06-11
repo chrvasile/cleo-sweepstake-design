@@ -24,6 +24,42 @@ These rules are non-negotiable and apply to every file you create or modify.
    - Bottom sheets animate up from below using Framer Motion `AnimatePresence`.
    - Haptic equivalents are visual (scale, opacity shift) — not literal haptics.
 
+8. **Motion tokens are mandatory.** Never hardcode durations (ms or seconds), easing curves, or animation parameters. Every animation must use tokens from `src/design-system/tokens/motion*.ts`. The motion system is layered — prefer the highest-level token that fits:
+
+   **Layer 3 — Component-shaped tokens (prefer these).** Ready-made choreography for specific UI patterns. Use directly — they carry the full design intent:
+   - `BottomDrawerTransitions` — backdrop, panel (scale + slide), content (with enter delay)
+   - `FullscreenModalTransitions` — backdrop, panel (slide + fade), underlying page parallax
+   - `AlertModalTransitions` — backdrop, panel (scale + fade with enter delay)
+   - `EnterTransitions.text` — row slide-up + per-word staggered fade/slide
+   - `EnterTransitions.bodyList` — row stagger cadence for lists
+   - `ExitTransitions.text` — slide + fade with offset timing
+   - `ExitTransitions.bodyList` — block slide with row stagger
+   - `DismissCardTransitions` — card fade + reflow slide with delay
+
+   **Advanced choreography** (in `motionTransitionsAdvanced.ts`):
+   - `TabEnterCascade` — staggered card cascade on tab switch
+   - `FullscreenModalMaintainContext` — source element morphs via layoutId into FSM
+   - `FullscreenModalContainerTransformNew` — source card morphs into FSM panel, new content
+   - `FullscreenModalContainerTransformKeep` — source card morphs into FSM panel, source content stays
+
+   **Reduced-motion adapters** (in `motionAdaptersReducedMotion.ts`):
+   Functions like `stackTransition(reduced)`, `modalTransition(reduced)`, `bottomDrawerBackdropEnter(reduced)`, etc. Pass `useReducedMotion()` from Framer Motion. They return full Framer Motion `Transition` objects — reduced-motion variants are already built in.
+
+   **Layer 2 — Semantic raw transitions.** When no component-shaped token fits, use `MotionTransitions` grouped by motion shape and intent:
+   - Enter: `fadeIn.*`, `scaleIn.*`, `slideIn.*` — easeOut (decelerates to rest)
+   - Exit: `fadeOut.*`, `scaleOut.*`, `slideOut.*` — easeIn (accelerates away)
+   - State-to-state: `scale.*`, `slide.*` — easeInOut (symmetric, element keeps identity)
+   - Each group offers duration tiers: `swift1` (50ms), `swift2` (100ms), `steady1` (200ms), `steady2` (300ms), `slow1` (400ms), `slow2` (500ms)
+   - Convert to Framer Motion with `framerFromDef(MotionTransitions.slideIn.steady1)`
+
+   **Layer 1 — Primitives (do not use directly in components).** `MotionDuration` and `MotionEasing` are the raw scale. Only use them when composing new semantic tokens or for delay/stagger values — never as standalone animation parameters.
+
+   **Choosing the right easing:**
+   - Element entering the screen → `easeOut` (decelerates to rest)
+   - Element leaving the screen → `easeIn` (accelerates away)
+   - Element changing in place (keeps identity) → `easeInOut` (symmetric)
+   - Opacity-only transitions → `linear`
+
 7. **Safe area awareness.** Any element that would sit behind the Dynamic Island or home indicator on a real device must respect `SAFE_AREA_TOP` and `SAFE_AREA_BOTTOM` from `src/shell/SafeAreaProvider.tsx`, or wrap content in the `SafeArea` component from `src/design-system/components/SafeArea`.
 
 ## Workflow: Figma to Prototype
@@ -34,7 +70,8 @@ When a designer provides a Figma file or Figma MCP output:
 2. After rendering, perform a reconciliation pass:
    a. For every colour value in the Figma spec, check whether it matches a token in `src/design-system/tokens/colors.ts`. If it matches (exact or near-exact), replace the hardcoded value with the token reference.
    b. For every UI element in the Figma spec, check whether a matching component exists in `src/design-system/components/`. If it does, replace the raw implementation with the component.
-3. Do not silently skip reconciliation. If a colour or element could not be matched, leave a comment in the code: `// No design system match found for [value/element] — using raw value`.
+   c. For every animation or transition in the Figma spec (duration, easing, delay, stagger), check whether it matches a motion token in `src/design-system/tokens/motionTransitions.ts` or `motionTransitionsAdvanced.ts`. If a component-shaped token exists for the pattern (e.g. bottom drawer, fullscreen modal, alert, text enter/exit), use it. Otherwise match to the closest `MotionTransitions` group + duration tier.
+3. Do not silently skip reconciliation. If a colour, element, or motion value could not be matched, leave a comment in the code: `// No design system match found for [value/element] — using raw value`.
 4. The output should be a screen that looks identical to the Figma spec but is built on design system primitives wherever possible.
 
 ## Workflow: Idea to Prototype
