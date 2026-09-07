@@ -490,8 +490,13 @@ export const SavingsScreen: React.FC = () => {
           <div className="w-full rounded-MODAL border border-default bg-white p-S" style={{ overflow: 'hidden' }}>
             <div className="relative">
               <Image source={drawHero} alt="" height={143} resizeMode="cover" borderRadius={16} />
-              {/* Countdown overlay: always mounted, crossfades in/out with the content below */}
+              {/* Countdown overlay: always mounted, crossfades in/out with the content below.
+                  `initial={false}` on this and the three motion.divs below stops Framer Motion
+                  from playing the intro animation on first mount — without it, this
+                  below-the-fold tile animates in invisibly on page load, and scrolling to it
+                  mid-flight catches it still settling into place. */}
               <motion.div
+                initial={false}
                 animate={{ opacity: entered ? 1 : 0 }}
                 transition={{ duration: DRAW_FADE_DURATION, delay: entered ? DRAW_FADE_IN_DELAY : 0, ease: DRAW_EASE }}
                 className="absolute flex items-center rounded-CONTAINER px-S py-XS"
@@ -514,11 +519,13 @@ export const SavingsScreen: React.FC = () => {
                 known natural heights — everything below reflows for free since
                 nothing here is `layout`/FLIP-animated or position: absolute itself. */}
             <motion.div
+              initial={false}
               animate={{ height: entered ? DRAW_CONTENT_HEIGHT_AFTER : DRAW_CONTENT_HEIGHT_BEFORE }}
               transition={{ duration: DRAW_HEIGHT_DURATION, delay: DRAW_HEIGHT_DELAY, ease: DRAW_EASE }}
               style={{ position: 'relative', marginTop: Spacing.S, overflow: 'hidden' }}
             >
               <motion.div
+                initial={false}
                 animate={{ opacity: entered ? 0 : 1 }}
                 transition={{ duration: DRAW_FADE_DURATION, delay: DRAW_FADE_OUT_DELAY, ease: DRAW_EASE }}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: entered ? 'none' : 'auto' }}
@@ -537,6 +544,7 @@ export const SavingsScreen: React.FC = () => {
               </motion.div>
 
               <motion.div
+                initial={false}
                 animate={{ opacity: entered ? 1 : 0 }}
                 transition={{ duration: DRAW_FADE_DURATION, delay: entered ? DRAW_FADE_IN_DELAY : 0, ease: DRAW_EASE }}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: entered ? 'auto' : 'none' }}
