@@ -3,9 +3,8 @@ import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { SegmentedControl } from '../design-system/components';
 import { ThemeProvider } from '../design-system/theme';
 import { FRAME_PRESETS, FrameProvider, IPhoneFrame, useFrame } from '../shell';
-import { ContentMapOverlay, contentMapGraph, prototypeScreens } from './content-map';
-import { IterationPlaceholder } from './components/IterationPlaceholder';
-import { DESIGN_ITERATIONS, DESIGN_ITERATION_LABEL } from './designIterations';
+import { ContentMapOverlay, contentMapGraphByIteration, screensByIteration } from './content-map';
+import { DESIGN_ITERATIONS } from './designIterations';
 import type { DesignIteration } from './designIterations';
 import { capturePrototypeFlow, downloadFigmaExport } from './figma-export';
 
@@ -27,6 +26,8 @@ const PrototypeApp: React.FC = () => {
   const frame = useFrame();
   const framePreset = frame?.preset ?? 'medium';
   const frameSpec = frame?.spec ?? FRAME_PRESETS.medium;
+  const prototypeScreens = screensByIteration[designIteration] ?? [];
+  const contentMapGraph = contentMapGraphByIteration[designIteration] ?? { nodes: [], edges: [] };
   const contentMapAvailable = contentMapGraph.nodes.length >= 2 && contentMapGraph.edges.length > 0;
 
   const handleNavigateToRoute = (routePath: string) => {
@@ -57,7 +58,7 @@ const PrototypeApp: React.FC = () => {
   return (
     <>
       <IPhoneFrame
-        contentMapAvailable={contentMapAvailable && designIteration === 'visual'}
+        contentMapAvailable={contentMapAvailable}
         isExportingFigmaFlow={isExportingFigmaFlow}
         onExportFigmaFlow={handleExportFigmaFlow}
         onOpenContentMap={() => setContentMapOpen(true)}
@@ -69,15 +70,11 @@ const PrototypeApp: React.FC = () => {
           />
         }
       >
-        {designIteration === 'visual' ? (
-          <Routes>
-            {prototypeScreens.map(({ Component, routePath }) => (
-              <Route key={routePath} path={routePath} element={<Component />} />
-            ))}
-          </Routes>
-        ) : (
-          <IterationPlaceholder label={DESIGN_ITERATION_LABEL[designIteration]} />
-        )}
+        <Routes key={designIteration}>
+          {prototypeScreens.map(({ Component, routePath }) => (
+            <Route key={routePath} path={routePath} element={<Component />} />
+          ))}
+        </Routes>
       </IPhoneFrame>
       <ContentMapOverlay
         graph={contentMapGraph}

@@ -1,5 +1,5 @@
 export { ContentMapOverlay } from './ContentMapOverlay';
-export { contentMapGraph, prototypeScreens } from './screenRegistry';
+export { contentMapGraphByIteration, screensByIteration } from './screenRegistry';
 export type {
   ContentMapEdge,
   ContentMapGraph,

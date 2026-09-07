@@ -33,12 +33,20 @@ const getScreenName = (modulePath: string) => {
   return fileName.replace(/\.tsx$/, '');
 };
 
-const getScreenSegments = (modulePath: string) =>
-  modulePath
-    .replace('../screens/', '')
-    .replace(/\.tsx$/, '')
-    .split('/')
-    .map((segment) => segment.replace(new RegExp(`${SCREEN_SUFFIX}$`), ''));
+// Screens live one level deeper now, under a design-iteration folder
+// (e.g. `../screens/visual/SavingsScreen.tsx`) — that leading segment is the
+// iteration key, not part of the screen's own name, so id/route inference
+// below ignores it.
+const getRelativeSegments = (modulePath: string) =>
+  modulePath.replace('../screens/', '').replace(/\.tsx$/, '').split('/');
+
+const getIterationKey = (modulePath: string) => getRelativeSegments(modulePath)[0] ?? modulePath;
+
+const getScreenSegments = (modulePath: string) => {
+  const segments = getRelativeSegments(modulePath);
+  const withoutIteration = segments.length > 1 ? segments.slice(1) : segments;
+  return withoutIteration.map((segment) => segment.replace(new RegExp(`${SCREEN_SUFFIX}$`), ''));
+};
 
 const getInferredId = (modulePath: string) => toKebab(getScreenSegments(modulePath).join('-'));
 
@@ -56,29 +64,6 @@ const getNamedComponent = (module: ScreenModule, screenName: string): React.Comp
 
 const routeRank = (routePath: string) => (routePath === '/' ? '' : routePath);
 
-export const prototypeScreens: PrototypeScreen[] = Object.entries(screenModules)
-  .map(([modulePath, module]) => {
-    const screenName = getScreenName(modulePath);
-    const Component = getNamedComponent(module, screenName);
-    if (!Component) return null;
-
-    const contentMap = module.contentMap ?? {};
-    const id = contentMap.id ?? getInferredId(modulePath);
-    const routePath = contentMap.routePath ?? getInferredRoutePath(modulePath);
-    const label = contentMap.label ?? toTitle(screenName.replace(new RegExp(`${SCREEN_SUFFIX}$`), ''));
-
-    return {
-      id,
-      routePath,
-      label,
-      order: contentMap.order ?? Number.MAX_SAFE_INTEGER,
-      Component,
-      contentMap,
-    };
-  })
-  .filter((screen): screen is PrototypeScreen => screen != null)
-  .sort((a, b) => a.order - b.order || routeRank(a.routePath).localeCompare(routeRank(b.routePath)));
-
 const explicitEdges = (screens: PrototypeScreen[]): ContentMapEdge[] =>
   screens.flatMap((screen) =>
     (screen.contentMap.options ?? [])
@@ -90,20 +75,58 @@ const explicitEdges = (screens: PrototypeScreen[]): ContentMapEdge[] =>
       })),
   );
 
-export const contentMapGraph: ContentMapGraph = {
-  nodes: prototypeScreens.map((screen) => ({
-    id: screen.id,
-    routePath: screen.routePath,
-    label: screen.label,
-    context: screen.contentMap.context ?? screen.label,
-    status: screen.contentMap.status ?? 'done',
-    heading: screen.contentMap.heading,
-    subhead: screen.contentMap.subhead,
-    body: screen.contentMap.body,
-    note: screen.contentMap.note,
-    order: screen.order,
-    column: screen.contentMap.column,
-    options: screen.contentMap.options ?? [],
-  })),
-  edges: explicitEdges(prototypeScreens),
-};
+const screensByIterationMutable: Record<string, PrototypeScreen[]> = {};
+
+for (const [modulePath, module] of Object.entries(screenModules)) {
+  const screenName = getScreenName(modulePath);
+  const Component = getNamedComponent(module, screenName);
+  if (!Component) continue;
+
+  const iterationKey = getIterationKey(modulePath);
+  const contentMap = module.contentMap ?? {};
+  const id = contentMap.id ?? getInferredId(modulePath);
+  const routePath = contentMap.routePath ?? getInferredRoutePath(modulePath);
+  const label = contentMap.label ?? toTitle(screenName.replace(new RegExp(`${SCREEN_SUFFIX}$`), ''));
+
+  const screen: PrototypeScreen = {
+    id,
+    routePath,
+    label,
+    order: contentMap.order ?? Number.MAX_SAFE_INTEGER,
+    Component,
+    contentMap,
+  };
+
+  (screensByIterationMutable[iterationKey] ??= []).push(screen);
+}
+
+for (const screens of Object.values(screensByIterationMutable)) {
+  screens.sort((a, b) => a.order - b.order || routeRank(a.routePath).localeCompare(routeRank(b.routePath)));
+}
+
+/** Every prototype screen, grouped by design-iteration folder under `screens/`. */
+export const screensByIteration: Record<string, PrototypeScreen[]> = screensByIterationMutable;
+
+/** Content-map graph per design iteration, built from that iteration's screens only. */
+export const contentMapGraphByIteration: Record<string, ContentMapGraph> = Object.fromEntries(
+  Object.entries(screensByIterationMutable).map(([iterationKey, screens]) => [
+    iterationKey,
+    {
+      nodes: screens.map((screen) => ({
+        id: screen.id,
+        routePath: screen.routePath,
+        label: screen.label,
+        context: screen.contentMap.context ?? screen.label,
+        status: screen.contentMap.status ?? 'done',
+        heading: screen.contentMap.heading,
+        subhead: screen.contentMap.subhead,
+        body: screen.contentMap.body,
+        note: screen.contentMap.note,
+        order: screen.order,
+        column: screen.contentMap.column,
+        options: screen.contentMap.options ?? [],
+      })),
+      edges: explicitEdges(screens),
+    },
+  ]),
+);
