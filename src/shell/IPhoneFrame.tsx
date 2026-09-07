@@ -47,6 +47,7 @@ type IPhoneFrameProps = {
   contentMapAvailable?: boolean;
   onExportFigmaFlow?: () => void;
   isExportingFigmaFlow?: boolean;
+  belowFrame?: React.ReactNode;
 };
 
 const getScreenshotFileName = () => {
@@ -102,6 +103,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
   contentMapAvailable = true,
   onExportFigmaFlow,
   isExportingFigmaFlow = false,
+  belowFrame,
 }) => {
   const frame = useFrame();
   const preset = frame?.preset ?? 'medium';
@@ -121,6 +123,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const belowFrameRef = useRef<HTMLDivElement>(null);
   const screenCaptureRef = useRef<HTMLDivElement>(null);
   const handleIslandTap = useDoubleTap(() => setGalleryOpen(true));
   const longPress = useLongPress(() => setPresetMenuOpen(true));
@@ -141,19 +144,23 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
       const w = window.innerWidth;
       const h = window.innerHeight;
       const controlsHeight = controlsRef.current?.getBoundingClientRect().height ?? 0;
+      const belowFrameHeight = belowFrameRef.current?.getBoundingClientRect().height ?? 0;
+      const belowFrameGap = belowFrameHeight > 0 ? Spacing.S : 0;
       const scaleX = (w - FRAME_PADDING * 2) / spec.width;
-      const scaleY = (h - FRAME_PADDING * 2 - controlsHeight - Spacing.S) / spec.height;
+      const scaleY =
+        (h - FRAME_PADDING * 2 - controlsHeight - belowFrameHeight - belowFrameGap - Spacing.S) / spec.height;
       setScale(Math.min(1, Math.max(0, scaleX), Math.max(0, scaleY)));
     };
     compute();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(compute);
     if (controlsRef.current) observer?.observe(controlsRef.current);
+    if (belowFrameRef.current) observer?.observe(belowFrameRef.current);
     window.addEventListener('resize', compute);
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', compute);
     };
-  }, [isTouchDevice, spec.width, spec.height]);
+  }, [isTouchDevice, spec.width, spec.height, Boolean(belowFrame)]);
 
   if (isTouchDevice) {
     return (
@@ -572,6 +579,12 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
           </div>
         </div>
       </div>
+
+      {belowFrame && (
+        <div ref={belowFrameRef} className="flex justify-center">
+          {belowFrame}
+        </div>
+      )}
     </div>
   );
 };
