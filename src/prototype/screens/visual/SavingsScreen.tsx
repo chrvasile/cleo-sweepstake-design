@@ -10,29 +10,29 @@ import {
   Carousel,
   Image,
   LineIcon,
-} from '../../design-system/components';
-import type { LineIconName } from '../../design-system/components';
+} from '../../../design-system/components';
+import type { LineIconName } from '../../../design-system/components';
 import {
   colorRoles,
   Spacing,
   BottomDrawerTransitions,
   framerFromDef,
   MotionDuration,
-} from '../../design-system/tokens';
-import { useSafeArea } from '../../shell';
-import { AnimatedClockIcon } from '../components/AnimatedClockIcon';
-import type { ContentMapScreenMetadata } from '../content-map/types';
-import fdicLogo from '../assets/fdic-logo.png';
-import drawHero from '../assets/sweepstakes-draw-hero.png';
-import infoIcon from '../assets/info-icon.svg';
-import activityIconInvesting from '../assets/activity-icon-investing.svg';
-import activityIconAdded from '../assets/activity-icon-added.svg';
-import activityIconWithdrawn from '../assets/activity-icon-withdrawn.svg';
-import saveHackPaydaySaver from '../assets/save-hack-payday-saver.png';
-import saveHackSetAndForget from '../assets/save-hack-set-and-forget.png';
-import saveHackRoundups from '../assets/save-hack-roundups.png';
-import saveHackSwearJar from '../assets/save-hack-swear-jar.png';
-import saveHackSmartSave from '../assets/save-hack-smart-save.png';
+} from '../../../design-system/tokens';
+import { useSafeArea } from '../../../shell';
+import { AnimatedClockIcon } from '../../components/AnimatedClockIcon';
+import type { ContentMapScreenMetadata } from '../../content-map/types';
+import fdicLogo from '../../assets/fdic-logo.png';
+import drawHero from '../../assets/sweepstakes-draw-hero.png';
+import infoIcon from '../../assets/info-icon.svg';
+import activityIconInvesting from '../../assets/activity-icon-investing.svg';
+import activityIconAdded from '../../assets/activity-icon-added.svg';
+import activityIconWithdrawn from '../../assets/activity-icon-withdrawn.svg';
+import saveHackPaydaySaver from '../../assets/save-hack-payday-saver.png';
+import saveHackSetAndForget from '../../assets/save-hack-set-and-forget.png';
+import saveHackRoundups from '../../assets/save-hack-roundups.png';
+import saveHackSwearJar from '../../assets/save-hack-swear-jar.png';
+import saveHackSmartSave from '../../assets/save-hack-smart-save.png';
 
 export const contentMap: ContentMapScreenMetadata = {
   id: 'savings',
