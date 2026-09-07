@@ -145,7 +145,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
       const h = window.innerHeight;
       const controlsHeight = controlsRef.current?.getBoundingClientRect().height ?? 0;
       const belowFrameHeight = belowFrameRef.current?.getBoundingClientRect().height ?? 0;
-      const belowFrameGap = belowFrameHeight > 0 ? Spacing.S : 0;
+      const belowFrameGap = belowFrameHeight > 0 ? Spacing.L : 0;
       const scaleX = (w - FRAME_PADDING * 2) / spec.width;
       const scaleY =
         (h - FRAME_PADDING * 2 - controlsHeight - belowFrameHeight - belowFrameGap - Spacing.S) / spec.height;
@@ -581,7 +581,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
       </div>
 
       {belowFrame && (
-        <div ref={belowFrameRef} className="flex justify-center">
+        <div ref={belowFrameRef} className="flex justify-center mt-S">
           {belowFrame}
         </div>
       )}
