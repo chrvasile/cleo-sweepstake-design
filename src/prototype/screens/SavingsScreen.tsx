@@ -17,6 +17,7 @@ import {
   Spacing,
   BottomDrawerTransitions,
   framerFromDef,
+  MotionDuration,
 } from '../../design-system/tokens';
 import { useSafeArea } from '../../shell';
 import { AnimatedClockIcon } from '../components/AnimatedClockIcon';
@@ -377,11 +378,18 @@ export const SavingsScreen: React.FC = () => {
 
   // Show the snackbar once the draw-entry morph has settled (height transition
   // ends at 0.3s delay + 0.6s duration = 0.9s; content fade-in ends at
-  // 0.6s + 0.4s = 1.0s), then auto-dismiss it after a normal toast duration.
+  // 0.6s + 0.4s = 1.0s), plus a short extra beat so the snackbar reads as a
+  // reaction to the state change rather than landing in the same instant as
+  // it, then auto-dismiss it after a normal toast duration.
+  const SNACKBAR_SETTLE_MS = (DRAW_FADE_IN_DELAY + DRAW_FADE_DURATION) * 1000;
+  const SNACKBAR_BEAT_MS = MotionDuration.steady1;
+  const SNACKBAR_SHOW_DELAY_MS = SNACKBAR_SETTLE_MS + SNACKBAR_BEAT_MS;
+  const SNACKBAR_VISIBLE_MS = MotionDuration.slow3 * 4;
+
   useEffect(() => {
     if (!entered) return;
-    const showTimer = setTimeout(() => setShowSnackbar(true), 1000);
-    const hideTimer = setTimeout(() => setShowSnackbar(false), 5000);
+    const showTimer = setTimeout(() => setShowSnackbar(true), SNACKBAR_SHOW_DELAY_MS);
+    const hideTimer = setTimeout(() => setShowSnackbar(false), SNACKBAR_SHOW_DELAY_MS + SNACKBAR_VISIBLE_MS);
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
