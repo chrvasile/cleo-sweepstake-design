@@ -647,7 +647,7 @@ export const SavingsScreen: React.FC = () => {
           <Typography type="label" size="S" color={colorRoles.content.tertiary} align="center">
             Your savings are held at Thread Bank, Member FDIC
           </Typography>
-          <Typography type="label" size="S" color={colorRoles.content.tertiary} align="center">
+          <Typography type="label" size="S" color={colorRoles.content.tertiary} align="left">
             {`FDIC insurance up to $3,000,000 is available through a network of program banks where your funds may be held, each a Member FDIC. Standard FDIC insurance is $250,000 per depositor, per insured bank, per ownership category; higher coverage is reached by distributing deposits across multiple program banks. Coverage depends on program conditions being met, including that you haven't already reached coverage limits at a program bank through other deposits held there. A current list of program banks is available `}
             <Typography as="span" type="bodyLink" size="S" color={colorRoles.content.tertiary}>
               here

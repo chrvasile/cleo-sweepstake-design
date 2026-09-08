@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Button,
   IconButton,
@@ -10,6 +11,7 @@ import {
   Carousel,
   Image,
   LineIcon,
+  Tag,
 } from '../../../design-system/components';
 import type { LineIconName } from '../../../design-system/components';
 import {
@@ -18,12 +20,15 @@ import {
   BottomDrawerTransitions,
   framerFromDef,
   MotionDuration,
+  bottomDrawerBackdropEnter,
+  bottomDrawerPanelEnter,
+  bottomDrawerContentEnter,
 } from '../../../design-system/tokens';
 import { useSafeArea } from '../../../shell';
-import { AnimatedClockIcon } from '../../components/AnimatedClockIcon';
 import type { ContentMapScreenMetadata } from '../../content-map/types';
 import fdicLogo from '../../assets/fdic-logo.png';
-import drawHero from '../../assets/sweepstakes-draw-hero.png';
+import sweepstakesHourglass from '../../assets/sweepstakes-draw-hourglass.png';
+import sweepstakesModalHero from '../../assets/sweepstakes-modal-hero.png';
 import infoIcon from '../../assets/info-icon.svg';
 import activityIconInvesting from '../../assets/activity-icon-investing.svg';
 import activityIconAdded from '../../assets/activity-icon-added.svg';
@@ -43,6 +48,9 @@ export const contentMap: ContentMapScreenMetadata = {
   heading: 'Savings',
   subhead: 'Balance, the weekly sweepstakes draw tile, save hacks and activity.',
   order: 0,
+  options: [
+    { code: 'ENTER_EXTRA_TOKENS', label: 'Get extra tokens', to: 'widget-selection-deposit' },
+  ],
 };
 
 // ─── Small building blocks (no design-system match — assembled from tokens) ──
@@ -103,98 +111,7 @@ const StatTile: React.FC<{ icon: LineIconName; parts: NumberFragment[]; label: s
   </div>
 );
 
-const DrawStat: React.FC<{ icon: LineIconName; value: string; label: string }> = ({ icon, value, label }) => (
-  <VStack gap="XXS" align="center" justify="start" className="flex-1">
-    <div
-      className="flex items-center justify-center rounded-ICON"
-      style={{ width: 40, height: 40, backgroundColor: colorRoles.background.secondary }}
-    >
-      {/* Ticking hands (not a static glyph) sell the "time is running out"
-          framing of the draw countdown — see AnimatedClockIcon. */}
-      {icon === 'clock' ? (
-        <AnimatedClockIcon size={20} color={colorRoles.content.primary} />
-      ) : (
-        <LineIcon name={icon} size="M" color={colorRoles.content.primary} />
-      )}
-    </div>
-    <VStack gap="XXXXS" align="center">
-      {/* Figma: Title/Strong/L is SemiBold here, not the design system's Bold default */}
-      <Typography type="titleStrong" size="L" weight="SemiBold" color={colorRoles.content.primary} align="center">
-        {value}
-      </Typography>
-      <Typography type="body" size="M" color={colorRoles.content.accentMid} align="center">
-        {label}
-      </Typography>
-    </VStack>
-  </VStack>
-);
-
-// Countdown chip shown on the hero image once entered. Figma: Numbers/XS
-// (Medium, 16/20) segments in white, separated by 1px hairline dividers.
-// Matches Figma's static copy (06d 03h 34m 48s) as the starting point, then
-// ticks down for real once mounted.
-const DRAW_COUNTDOWN_SECONDS = 6 * 86400 + 3 * 3600 + 34 * 60 + 48;
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-const formatCountdown = (totalSeconds: number) => {
-  const clamped = Math.max(0, totalSeconds);
-  const days = Math.floor(clamped / 86400);
-  const hours = Math.floor((clamped % 86400) / 3600);
-  const minutes = Math.floor((clamped % 3600) / 60);
-  const seconds = Math.floor(clamped % 60);
-  return [`${pad2(days)}d`, `${pad2(hours)}h`, `${pad2(minutes)}m`, `${pad2(seconds)}s`];
-};
-
-const CountdownTimer: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
-  const [secondsLeft, setSecondsLeft] = useState(DRAW_COUNTDOWN_SECONDS);
-
-  useEffect(() => {
-    if (!isRunning) return;
-    const endsAt = Date.now() + secondsLeft * 1000;
-    const tick = () => setSecondsLeft(Math.max(0, Math.round((endsAt - Date.now()) / 1000)));
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally captures secondsLeft only once per start
-  }, [isRunning]);
-
-  const segments = formatCountdown(secondsLeft);
-
-  return (
-    <HStack gap="XXS" align="center">
-      {segments.map((segment, i) => (
-        <React.Fragment key={i}>
-          <NumberPart text={segment} size="XS" color={colorRoles.content.onColor} />
-          {i < segments.length - 1 && (
-            <div style={{ width: 1, height: 16, backgroundColor: colorRoles.border.opaqueInverseLight }} />
-          )}
-        </React.Fragment>
-      ))}
-    </HStack>
-  );
-};
-
-// Draw-tile "before → after" state change — an explicit designer-authored spec
-// (matching Figma's own keyframes), not the design system's token scale:
-// - Card, title and hourglass image never move; only the content area under
-//   the image changes, by crossfading its two states (both always mounted,
-//   stacked absolute, opacity-only) inside a container whose height animates
-//   between their two known natural heights. Nothing below it is animated
-//   directly — it just reflows, because the tile is never `layout`/FLIP.
-// - The 300ms gap between the old content starting to fade and the new
-//   content/countdown starting to appear is what sells the "shared shell":
-//   the shell (title + image) visibly holds still while old content
-//   dissolves, before new content resolves in.
-const DRAW_EASE: [number, number, number, number] = [0.42, 0, 0.58, 1]; // CSS ease-in-out
-const DRAW_FADE_DURATION = 0.4;
-const DRAW_FADE_OUT_DELAY = 0.3;
-const DRAW_FADE_IN_DELAY = 0.6;
-const DRAW_HEIGHT_DURATION = 0.6;
-const DRAW_HEIGHT_DELAY = 0.3;
-const DRAW_CONTENT_HEIGHT_BEFORE = 198; // natural height of the stats row + two buttons
-const DRAW_CONTENT_HEIGHT_AFTER = 96; // natural height of the confirmation row + one button
-
-// Snackbar shown once the draw-entry morph settles. No dedicated snackbar
+// Snackbar shown once the draw entry is confirmed. No dedicated snackbar
 // component or motion bundle exists in the design system, so this reuses
 // `BottomDrawerTransitions.panel` — the closest existing motion shape for a
 // transient bottom-anchored surface (scale + slide, easeOut in / easeIn out).
@@ -366,28 +283,246 @@ const PeriodChip: React.FC<{ label: string; isSelected: boolean; onPress: () => 
   </motion.button>
 );
 
+// ─── Sweepstake token-entry drawer (widget-selection variant only) ──────────
+// Figma node 103:3481 ("BottomDrawer Base"). No design-system Slider or
+// bottom-drawer component exists yet, so both are hand-built here from the
+// mandatory BottomDrawerTransitions/reduced-motion adapters plus the same
+// colour and spacing tokens used elsewhere in this screen.
+
+const DRAW_BASE_TOKENS = 177;
+const DRAW_MAX_TOKENS = 300;
+const DRAW_TOKEN_MARKS = [DRAW_BASE_TOKENS, 200, 250, DRAW_MAX_TOKENS];
+
+// A native range input drives drag/tap/keyboard interaction (opacity 0, laid
+// over the custom track) — its own track/thumb are hidden and redrawn below
+// with tokens so we get real slider semantics without a design-system Slider.
+const TokenSlider: React.FC<{ value: number; onChange: (value: number) => void }> = ({
+  value,
+  onChange,
+}) => {
+  const percent = ((value - DRAW_BASE_TOKENS) / (DRAW_MAX_TOKENS - DRAW_BASE_TOKENS)) * 100;
+  // Half the handle's own width. The track/fill bar bleeds edge-to-edge (matching
+  // the modal's own padding), but the handle's travel range is inset by this much
+  // on each side so its edge — not its center — lands at the container's edge.
+  const HANDLE_RADIUS = 16;
+  const handlePosition = `calc(${HANDLE_RADIUS}px + (100% - ${HANDLE_RADIUS * 2}px) * ${percent / 100})`;
+  return (
+    <VStack gap="XXXS" align="stretch" className="w-full">
+      <div className="relative w-full" style={{ height: 40 }}>
+        <input
+          type="range"
+          min={DRAW_BASE_TOKENS}
+          max={DRAW_MAX_TOKENS}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full cursor-pointer appearance-none"
+          style={{ opacity: 0, height: 40, margin: 0 }}
+          aria-label="Number of tokens to enter"
+        />
+        <div
+          className="pointer-events-none absolute left-0 right-0 rounded-PILL"
+          style={{ top: '50%', height: 8, transform: 'translateY(-50%)', backgroundColor: colorRoles.background.secondary }}
+        />
+        <div
+          className="pointer-events-none absolute left-0 rounded-PILL"
+          style={{ top: '50%', height: 8, width: handlePosition, transform: 'translateY(-50%)', backgroundColor: colorRoles.content.primary }}
+        />
+        <div
+          className="pointer-events-none absolute rounded-PILL"
+          style={{
+            top: '50%',
+            left: handlePosition,
+            width: HANDLE_RADIUS * 2,
+            height: HANDLE_RADIUS * 2,
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: colorRoles.content.primary,
+            border: `2px solid ${colorRoles.background.secondary}`,
+          }}
+        />
+      </div>
+      <HStack justify="between" align="center" className="w-full">
+        {DRAW_TOKEN_MARKS.map((mark) => (
+          <Typography key={mark} type="labelStrong" size="M" weight="SemiBold" color={colorRoles.content.tertiary}>
+            {mark}
+          </Typography>
+        ))}
+      </HStack>
+    </VStack>
+  );
+};
+
+const TokenEntryDrawer: React.FC<{
+  isOpen: boolean;
+  tokens: number;
+  onChangeTokens: (value: number) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}> = ({ isOpen, tokens, onChangeTokens, onClose, onConfirm }) => {
+  const reducedMotion = !!useReducedMotion();
+  const extraTokens = tokens - DRAW_BASE_TOKENS;
+  const ctaLabel =
+    extraTokens > 0
+      ? `Get ${extraTokens} extra token${extraTokens === 1 ? '' : 's'}`
+      : `Enter draw (${DRAW_BASE_TOKENS} tokens)`;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            className="absolute inset-0 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={bottomDrawerBackdropEnter(reducedMotion)}
+            style={{ backgroundColor: colorRoles.background.overlay }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="absolute z-50 overflow-hidden rounded-MODAL"
+            style={{
+              left: Spacing.XS,
+              right: Spacing.XS,
+              // Flat 12px from the true screen edge, not the safe-area inset — this
+              // drawer sits above the home indicator zone rather than clearing it.
+              bottom: Spacing.XS,
+              backgroundColor: colorRoles.background.baseLight,
+            }}
+            initial={{ opacity: 0, y: 16, scale: BottomDrawerTransitions.panel.scaleFrom }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: BottomDrawerTransitions.panel.scaleFrom }}
+            transition={bottomDrawerPanelEnter(reducedMotion)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={bottomDrawerContentEnter(reducedMotion)}
+            >
+              <VStack
+                align="stretch"
+                style={{
+                  // Tailwind only generates a gap-<token> utility for tokens already
+                  // used literally elsewhere in the codebase — "M" isn't one of them
+                  // yet, so gap="M" silently produces no CSS. Set it inline instead.
+                  gap: Spacing.M,
+                  paddingLeft: Spacing.S,
+                  paddingRight: Spacing.S,
+                  paddingBottom: Spacing.S,
+                  paddingTop: Spacing.ZERO,
+                }}
+              >
+                {/* Figma: grabber sits flush at the bottom of its own 12px-tall header
+                    box (8px clearance above the 4px bar, no padding below it) — the
+                    24px gap to the image below comes from the outer VStack's own gap. */}
+                <div className="flex w-full justify-center" style={{ paddingTop: Spacing.XXS }}>
+                  <div className="rounded-PILL" style={{ width: 48, height: 4, backgroundColor: colorRoles.background.overlayLight }} />
+                </div>
+
+                <VStack gap="S" align="stretch" className="w-full">
+                  <Image source={sweepstakesModalHero} alt="" height={162} resizeMode="cover" borderRadius={16} />
+
+                  <VStack gap="XXS" align="start" className="w-full">
+                    <Tag variant="success" size="S">
+                      {/* See the tile's matching Tag below — matching the <p>'s own
+                          font-size/line-height to its labelStrong/S children avoids the
+                          oversized invisible strut a bare <p> would otherwise get. */}
+                      <p style={{ margin: 0, fontSize: 11, lineHeight: '14px' }}>
+                        <Typography as="span" type="labelStrong" size="S" weight="Medium" color={colorRoles.content.positiveDark}>
+                          {'Next draw in '}
+                        </Typography>
+                        <Typography as="span" type="labelStrong" size="S" weight="Bold" color={colorRoles.content.positiveDark}>
+                          2d 2hrs
+                        </Typography>
+                      </p>
+                    </Tag>
+                    <VStack gap="XXXS" align="start" className="w-full">
+                      <Typography type="headline" size="M" color={colorRoles.content.primary}>
+                        Choose how many tokens to enter
+                      </Typography>
+                      <Typography type="body" size="L" color={colorRoles.content.secondary}>
+                        The more tokens, the more chances to win. Add more money to your savings for extra tokens.
+                      </Typography>
+                    </VStack>
+                  </VStack>
+
+                  <TokenSlider value={tokens} onChange={onChangeTokens} />
+                </VStack>
+
+                <Button label={ctaLabel} variant="primary" fullWidth onPress={onConfirm} />
+              </VStack>
+            </motion.div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // ─── Screen ────────────────────────────────────────────────────────────────
 
 const PERIODS = ['1 W', '1 M', '6 M', '1 Y'] as const;
 
 export const SavingsScreen: React.FC = () => {
   const insets = useSafeArea();
-  const [entered, setEntered] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Read state left by DepositScreen on the way back — captured once at mount.
+  const [depositResult] = useState(() => {
+    const state = location.state as { depositedAmount?: number; depositedTokens?: number } | null;
+    return state?.depositedAmount != null ? state : null;
+  });
+  const [pendingDeposit] = useState(depositResult?.depositedAmount ?? 0);
+  const [entered, setEntered] = useState(depositResult != null);
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('1 Y');
   const [showSnackbar, setShowSnackbar] = useState(false);
+  const [isDrawOpen, setIsDrawOpen] = useState(false);
+  const [drawTokens, setDrawTokens] = useState(
+    depositResult != null
+      ? DRAW_BASE_TOKENS + (depositResult.depositedTokens ?? 0)
+      : DRAW_BASE_TOKENS,
+  );
+  const arrivedFromDepositRef = useRef(depositResult != null);
 
-  // Show the snackbar once the draw-entry morph has settled (height transition
-  // ends at 0.3s delay + 0.6s duration = 0.9s; content fade-in ends at
-  // 0.6s + 0.4s = 1.0s), plus a short extra beat so the snackbar reads as a
-  // reaction to the state change rather than landing in the same instant as
-  // it, then auto-dismiss it after a normal toast duration.
-  const SNACKBAR_SETTLE_MS = (DRAW_FADE_IN_DELAY + DRAW_FADE_DURATION) * 1000;
-  const SNACKBAR_BEAT_MS = MotionDuration.steady1;
-  const SNACKBAR_SHOW_DELAY_MS = SNACKBAR_SETTLE_MS + SNACKBAR_BEAT_MS;
+  const handleConfirmDraw = () => {
+    setIsDrawOpen(false);
+    const extraTokens = drawTokens - DRAW_BASE_TOKENS;
+    if (extraTokens > 0) {
+      navigate('/deposit', { state: { extraTokens } });
+    } else {
+      setEntered(true);
+    }
+  };
+
+  // Give the button's own tap feedback a beat to resolve before the snackbar
+  // appears, so it reads as a reaction to entering rather than landing in the
+  // same instant as the tap, then auto-dismiss it after a normal toast duration.
+  const SNACKBAR_SHOW_DELAY_MS = MotionDuration.steady2;
   const SNACKBAR_VISIBLE_MS = MotionDuration.slow3 * 4;
 
+  // Snackbar after returning from the deposit screen — fires once on mount.
   useEffect(() => {
-    if (!entered) return;
+    if (!arrivedFromDepositRef.current) return;
+    // Clear location state so a back/forward nav doesn't re-trigger.
+    navigate(location.pathname, { replace: true, state: null });
+    const showTimer = setTimeout(() => setShowSnackbar(true), SNACKBAR_SHOW_DELAY_MS);
+    const hideTimer = setTimeout(
+      () => setShowSnackbar(false),
+      SNACKBAR_SHOW_DELAY_MS + SNACKBAR_VISIBLE_MS,
+    );
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Snackbar for direct draw entry (slider at default).
+  useEffect(() => {
+    if (!entered || arrivedFromDepositRef.current) return;
     const showTimer = setTimeout(() => setShowSnackbar(true), SNACKBAR_SHOW_DELAY_MS);
     const hideTimer = setTimeout(() => setShowSnackbar(false), SNACKBAR_SHOW_DELAY_MS + SNACKBAR_VISIBLE_MS);
     return () => {
@@ -395,6 +530,24 @@ export const SavingsScreen: React.FC = () => {
       clearTimeout(hideTimer);
     };
   }, [entered]);
+
+  // When a deposit is pending, the first activity row becomes "Saving your money / Pending"
+  // showing the deposited amount in the accentMid (muted) colour — matching Figma node 113:4424.
+  const activityList: Activity[] =
+    pendingDeposit > 0
+      ? [
+          {
+            title: 'Saving your money',
+            subtitle: 'Pending • Today, 3:31pm',
+            sign: ' $',
+            main: String(Math.floor(pendingDeposit)),
+            cents: '.00',
+            amountColor: colorRoles.content.accentMid,
+            icon: activityIconInvesting,
+          },
+          ...ACTIVITY.slice(1),
+        ]
+      : ACTIVITY;
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
@@ -479,103 +632,88 @@ export const SavingsScreen: React.FC = () => {
           />
         </HStack>
 
-        {/* Sweepstakes draw tile */}
+        {/* Sweepstakes draw tile — compact widget-selection variant from Figma
+            (node 98:1306): a single-row card with the hourglass art bleeding
+            off the top-right corner, rather than the full hero-image tile
+            used in the other Savings variants. */}
         <VStack gap="XS" align="start" className="w-full">
           <Typography type="headline" size="S" color={colorRoles.content.primary}>
-            Enter the weekly $3,000 draw
+            Weekly $3,000 draw
           </Typography>
 
-          {/* Card + title + image are completely static — only the content area
-              below the image (and the countdown overlay on the image) animate. */}
-          <div className="w-full rounded-MODAL border border-default bg-white p-S" style={{ overflow: 'hidden' }}>
-            <div className="relative">
-              <Image source={drawHero} alt="" height={143} resizeMode="cover" borderRadius={16} />
-              {/* Countdown overlay: always mounted, crossfades in/out with the content below.
-                  `initial={false}` on this and the three motion.divs below stops Framer Motion
-                  from playing the intro animation on first mount — without it, this
-                  below-the-fold tile animates in invisibly on page load, and scrolling to it
-                  mid-flight catches it still settling into place. */}
-              <motion.div
-                initial={false}
-                animate={{ opacity: entered ? 1 : 0 }}
-                transition={{ duration: DRAW_FADE_DURATION, delay: entered ? DRAW_FADE_IN_DELAY : 0, ease: DRAW_EASE }}
-                className="absolute flex items-center rounded-CONTAINER px-S py-XS"
-                style={{
-                  left: 12,
-                  bottom: 12,
-                  height: 44,
-                  backgroundColor: 'rgba(14, 6, 5, 0.12)',
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
-                  pointerEvents: entered ? 'auto' : 'none',
-                }}
-              >
-                <CountdownTimer isRunning={entered} />
-              </motion.div>
+          <div
+            className="relative w-full rounded-CARD border border-default bg-white p-S"
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Hourglass art: fixed geometry lifted from Figma (outer 237.522px
+                rotated box, inner 201.796px square leaf with a slight bleed
+                inset) — deliberately clipped by the card's own overflow. */}
+            <div
+              className="absolute flex items-center justify-center"
+              style={{ left: 195, top: -13, width: 237.522, height: 237.522 }}
+            >
+              <div style={{ transform: 'rotate(-11.34deg)' }}>
+                <div className="relative" style={{ width: 201.796, height: 201.796 }}>
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <img
+                      src={sweepstakesHourglass}
+                      alt=""
+                      className="absolute max-w-none"
+                      style={{ left: '-2.41%', top: '-0.01%', width: '100%', height: '100%' }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Content area: both states always mounted, stacked absolute, crossfading
-                opacity only. The container's own height animates between their two
-                known natural heights — everything below reflows for free since
-                nothing here is `layout`/FLIP-animated or position: absolute itself. */}
-            <motion.div
-              initial={false}
-              animate={{ height: entered ? DRAW_CONTENT_HEIGHT_AFTER : DRAW_CONTENT_HEIGHT_BEFORE }}
-              transition={{ duration: DRAW_HEIGHT_DURATION, delay: DRAW_HEIGHT_DELAY, ease: DRAW_EASE }}
-              style={{ position: 'relative', marginTop: Spacing.S, overflow: 'hidden' }}
-            >
-              <motion.div
-                initial={false}
-                animate={{ opacity: entered ? 0 : 1 }}
-                transition={{ duration: DRAW_FADE_DURATION, delay: DRAW_FADE_OUT_DELAY, ease: DRAW_EASE }}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: entered ? 'none' : 'auto' }}
-              >
-                <VStack gap="S" align="stretch">
-                  <HStack gap="XXXS" align="stretch" className="w-full">
-                    <DrawStat icon="clock" value="2d 21hrs" label="before draw ends" />
-                    <Divider vertical />
-                    <DrawStat icon="ticket-default" value="177" label="tokens" />
-                  </HStack>
-                  <VStack gap="XS" align="stretch">
-                    <Button label="Enter the draw" variant="primary" fullWidth onPress={() => setEntered(true)} />
-                    <Button label="Learn more" variant="secondary" fullWidth />
-                  </VStack>
-                </VStack>
-              </motion.div>
-
-              <motion.div
-                initial={false}
-                animate={{ opacity: entered ? 1 : 0 }}
-                transition={{ duration: DRAW_FADE_DURATION, delay: entered ? DRAW_FADE_IN_DELAY : 0, ease: DRAW_EASE }}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: entered ? 'auto' : 'none' }}
-              >
-                <VStack gap="XS" align="stretch">
-                  <HStack gap="XXS" align="center">
-                    <div
-                      className="flex items-center justify-center rounded-ICON"
-                      style={{ width: 40, height: 40, backgroundColor: colorRoles.background.secondary }}
-                    >
-                      <LineIcon name="ticket-default" size="M" color={colorRoles.content.primary} />
-                    </div>
-                    <VStack gap="XXXXS" align="start" className="flex-1">
-                      {/* Figma: Title/Strong/L (18/22) — "You entered " is Medium, "177 tokens" is SemiBold */}
-                      <p style={{ margin: 0 }}>
-                        <Typography as="span" type="titleStrong" size="L" weight="Medium" color={colorRoles.content.primary}>
-                          You entered{' '}
-                        </Typography>
-                        <Typography as="span" type="titleStrong" size="L" weight="SemiBold" color={colorRoles.content.primary}>
-                          177 tokens
-                        </Typography>
-                      </p>
-                      <Typography type="body" size="M" color={colorRoles.content.secondary}>
-                        Get more tokens by adding to your savings
-                      </Typography>
-                    </VStack>
-                  </HStack>
-                  <Button label="Get more tokens" variant="secondary" fullWidth />
-                </VStack>
-              </motion.div>
-            </motion.div>
+            <VStack gap="S" align="start" style={{ maxWidth: 224, position: 'relative' }}>
+              <VStack gap="XXS" align="start" className="w-full">
+                {/* Design system's DisplayTag equivalent — reused (without an icon) for its
+                    own vertical padding, which is even top/bottom unlike a hand-rolled pill.
+                    Figma mixes weights within the label (Medium lead-in, Bold "2d 2hrs"), so
+                    content is passed as children rather than the plain-string `label` prop. */}
+                <Tag variant="success" size="S">
+                  {/* A bare <p> with no font-size/line-height of its own inherits a much
+                      larger default, which generates an oversized invisible "strut" for
+                      this line box — pushing the actual (smaller) text down inside it and
+                      leaving empty space above. Matching the <p>'s own metrics to its
+                      labelStrong/S children removes that mismatch. */}
+                  <p style={{ margin: 0, fontSize: 11, lineHeight: '14px' }}>
+                    <Typography as="span" type="labelStrong" size="S" weight="Medium" color={colorRoles.content.positiveDark}>
+                      {entered ? 'Countdown to the draw: ' : 'Next draw in '}
+                    </Typography>
+                    <Typography as="span" type="labelStrong" size="S" weight="Bold" color={colorRoles.content.positiveDark}>
+                      2d 2hrs
+                    </Typography>
+                  </p>
+                </Tag>
+                {entered ? (
+                  // "You entered 177 tokens" for direct entry; "177 + 50 tokens" when deposit is pending
+                  <p style={{ margin: 0 }}>
+                    <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
+                      You entered{' '}
+                    </Typography>
+                    <Typography as="span" type="body" size="M" weight="SemiBold" color={colorRoles.content.tertiary}>
+                      {pendingDeposit > 0
+                        ? DRAW_BASE_TOKENS + Math.floor(pendingDeposit)
+                        : drawTokens}{' '}tokens
+                    </Typography>
+                    <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
+                      . Get more by adding to your savings
+                    </Typography>
+                  </p>
+                ) : (
+                  <Typography type="body" size="M" color={colorRoles.content.tertiary}>
+                    The more you save, the more chances you have to win
+                  </Typography>
+                )}
+              </VStack>
+              <Button
+                label={entered ? 'Get more tokens' : 'Enter draw'}
+                variant={entered ? 'secondary' : 'primary'}
+                onPress={() => (entered ? setEntered(true) : setIsDrawOpen(true))}
+              />
+            </VStack>
           </div>
         </VStack>
 
@@ -614,7 +752,7 @@ export const SavingsScreen: React.FC = () => {
             className="w-full overflow-hidden rounded-CONTAINER border border-default"
             style={{ backgroundColor: colorRoles.background.baseLight }}
           >
-            {ACTIVITY.map((item, index) => (
+            {activityList.map((item, index) => (
               <React.Fragment key={item.title}>
                 {/* Not using ListItem here — its `icon` prop only takes a LineIcon
                     glyph name, and these three rows use real Figma SVG assets
@@ -631,7 +769,7 @@ export const SavingsScreen: React.FC = () => {
                   </VStack>
                   <ActivityAmount sign={item.sign} main={item.main} cents={item.cents} color={item.amountColor} />
                 </HStack>
-                {index < ACTIVITY.length - 1 && <Divider />}
+                {index < activityList.length - 1 && <Divider />}
               </React.Fragment>
             ))}
           </div>
@@ -647,7 +785,7 @@ export const SavingsScreen: React.FC = () => {
           <Typography type="label" size="S" color={colorRoles.content.tertiary} align="center">
             Your savings are held at Thread Bank, Member FDIC
           </Typography>
-          <Typography type="label" size="S" color={colorRoles.content.tertiary} align="center">
+          <Typography type="label" size="S" color={colorRoles.content.tertiary} align="left">
             {`FDIC insurance up to $3,000,000 is available through a network of program banks where your funds may be held, each a Member FDIC. Standard FDIC insurance is $250,000 per depositor, per insured bank, per ownership category; higher coverage is reached by distributing deposits across multiple program banks. Coverage depends on program conditions being met, including that you haven't already reached coverage limits at a program bank through other deposits held there. A current list of program banks is available `}
             <Typography as="span" type="bodyLink" size="S" color={colorRoles.content.tertiary}>
               here
@@ -667,6 +805,13 @@ export const SavingsScreen: React.FC = () => {
         </div>
       )}
     </AnimatePresence>
+    <TokenEntryDrawer
+      isOpen={isDrawOpen}
+      tokens={drawTokens}
+      onChangeTokens={setDrawTokens}
+      onClose={() => setIsDrawOpen(false)}
+      onConfirm={handleConfirmDraw}
+    />
     </div>
   );
 };
