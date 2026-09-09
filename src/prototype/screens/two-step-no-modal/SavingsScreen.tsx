@@ -44,16 +44,16 @@ import saveHackSwearJar from '../../assets/save-hack-swear-jar.png';
 import saveHackSmartSave from '../../assets/save-hack-smart-save.png';
 
 export const contentMap: ContentMapScreenMetadata = {
-  id: 'savings-two-step',
+  id: 'savings-two-step-no-modal',
   routePath: '/',
   label: 'Savings',
   context: 'Savings home',
   status: 'done',
-  heading: 'Savings — two-step entry',
-  subhead: "Widget tile. Tapping Enter draw opens a bottom sheet. The tile only updates once the sheet is dismissed.",
+  heading: 'Savings — two-step entry (no modal)',
+  subhead: "Same as two-step entry, but completing the hold flips the tile straight to the entered state without opening the confirmation sheet.",
   order: 0,
   options: [
-    { code: 'ENTER_EXTRA_TOKENS', label: 'Get extra tokens', to: 'two-step-deposit' },
+    { code: 'ENTER_EXTRA_TOKENS', label: 'Get extra tokens', to: 'two-step-no-modal-deposit' },
   ],
 };
 
@@ -515,10 +515,10 @@ export const SavingsScreen: React.FC = () => {
     );
   };
 
-  // Fires after the button's 480ms success beat — opens the sheet.
-  const handleEnterDraw = () => {
-    setSheetOpen(true);
-  };
+  // No-modal variant: completing the hold already flipped the tile to the
+  // entered state (handleHoldReady). We intentionally do NOT open the
+  // confirmation sheet here — this is the whole difference from `two-step`.
+  const handleEnterDraw = () => {};
 
   const handleDismissSheet = () => {
     setSheetOpen(false);

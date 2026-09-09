@@ -417,8 +417,8 @@ export const SavingsScreen: React.FC = () => {
               </div>
             </div>
 
-            <VStack gap="S" align="start" style={{ maxWidth: 224, position: 'relative' }}>
-              <VStack gap="XXS" align="start" className="w-full">
+            <VStack gap="S" align="start" style={{ position: 'relative' }}>
+              <VStack gap="XXS" align="start" style={{ maxWidth: 200 }} className="w-full">
                 {/* Design system's DisplayTag equivalent — reused (without an icon) for its
                     own vertical padding, which is even top/bottom unlike a hand-rolled pill.
                     Figma mixes weights within the label (Medium lead-in, Bold "2d 2hrs"), so
@@ -440,7 +440,7 @@ export const SavingsScreen: React.FC = () => {
                 </Tag>
                 {entered ? (
                   // Figma (node 102:1324): "You entered " / "177 tokens" (SemiBold) / trailing copy, one run
-                  <p style={{ margin: 0 }}>
+                  <p style={{ margin: 0, lineHeight: '18px' }}>
                     <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
                       You entered{' '}
                     </Typography>
@@ -454,7 +454,7 @@ export const SavingsScreen: React.FC = () => {
                 ) : (
                   // Figma (node 102:2964, widget variant's pre-signup tile): "You have " /
                   // "177 tokens" (Bold) / trailing copy, one run
-                  <p style={{ margin: 0 }}>
+                  <p style={{ margin: 0, lineHeight: '18px' }}>
                     <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
                       You have{' '}
                     </Typography>
@@ -462,16 +462,19 @@ export const SavingsScreen: React.FC = () => {
                       177 tokens
                     </Typography>
                     <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
-                      . Save more to get more chances to win
+                      . Save more for extra chances to win
                     </Typography>
                   </p>
                 )}
               </VStack>
-              <Button
-                label={entered ? 'Get more tokens' : 'Enter draw'}
-                variant={entered ? 'secondary' : 'primary'}
-                onPress={() => setEntered(true)}
-              />
+              {entered ? (
+                <Button label="Get more tokens" variant="secondary" />
+              ) : (
+                <HStack gap="XXS" align="center">
+                  <Button label="Enter draw" variant="primary" onPress={() => setEntered(true)} />
+                  <Button label="Get more tokens" variant="secondary" />
+                </HStack>
+              )}
             </VStack>
           </div>
         </VStack>
