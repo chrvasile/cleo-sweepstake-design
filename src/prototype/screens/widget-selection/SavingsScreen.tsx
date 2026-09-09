@@ -689,7 +689,7 @@ export const SavingsScreen: React.FC = () => {
                 </Tag>
                 {entered ? (
                   // "You entered 177 tokens" for direct entry; "177 + 50 tokens" when deposit is pending
-                  <p style={{ margin: 0 }}>
+                  <p style={{ margin: 0, lineHeight: '18px' }}>
                     <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
                       You entered{' '}
                     </Typography>

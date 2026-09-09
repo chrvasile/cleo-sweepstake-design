@@ -559,7 +559,7 @@ export const SavingsScreen: React.FC = () => {
                     </div>
                     <VStack gap="XXXXS" align="start" className="flex-1">
                       {/* Figma: Title/Strong/L (18/22) — "You entered " is Medium, "177 tokens" is SemiBold */}
-                      <p style={{ margin: 0 }}>
+                      <p style={{ margin: 0, lineHeight: '22px' }}>
                         <Typography as="span" type="titleStrong" size="L" weight="Medium" color={colorRoles.content.primary}>
                           You entered{' '}
                         </Typography>

@@ -25,7 +25,6 @@ const TOUCH_DEVICE_QUERY = '(pointer: coarse) and (hover: none)';
 const CONTENT_MAP_TOOLTIP_ID = 'content-map-tooltip';
 const FIGMA_EXPORT_TOOLTIP_ID = 'figma-export-tooltip';
 const SCREENSHOT_TOOLTIP_ID = 'screenshot-tooltip';
-const THEME_TOGGLE_TOOLTIP_ID = 'theme-toggle-tooltip';
 const CONTENT_MAP_UNAVAILABLE_TOOLTIP =
   'The Content Map will be available once you have at least two screens linked to each other.';
 const CONTENT_MAP_TOOLTIP = 'Open content map';
@@ -38,7 +37,6 @@ const CONTROL_ORDER = {
   figmaExport: Spacing.ZERO,
   contentMap: Spacing.CHAT_BUBBLES,
   screenshot: Spacing.XXXXS,
-  themeToggle: Spacing.XXS,
 } as const;
 
 type IPhoneFrameProps = {
@@ -117,7 +115,6 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
   const [contentMapTooltipOpen, setContentMapTooltipOpen] = useState(false);
   const [figmaExportTooltipOpen, setFigmaExportTooltipOpen] = useState(false);
   const [screenshotTooltipOpen, setScreenshotTooltipOpen] = useState(false);
-  const [themeToggleTooltipOpen, setThemeToggleTooltipOpen] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(TOUCH_DEVICE_QUERY).matches,
   );
@@ -127,7 +124,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
   const screenCaptureRef = useRef<HTMLDivElement>(null);
   const handleIslandTap = useDoubleTap(() => setGalleryOpen(true));
   const longPress = useLongPress(() => setPresetMenuOpen(true));
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const bezelColor = theme === 'dark' ? colors.brown[500] : colors.black;
   const islandColor = theme === 'dark' ? colors.brown[700] : colors.black;
 
@@ -329,52 +326,10 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
             <ControlTooltip id={SCREENSHOT_TOOLTIP_ID}>{SCREENSHOT_TOOLTIP}</ControlTooltip>
           )}
         </div>
-        <div className="relative inline-flex" style={{ order: CONTROL_ORDER.themeToggle }}>
-          <motion.button
-            type="button"
-            onClick={toggleTheme}
-            onMouseEnter={() => setThemeToggleTooltipOpen(true)}
-            onMouseLeave={() => setThemeToggleTooltipOpen(false)}
-            onFocus={() => setThemeToggleTooltipOpen(true)}
-            onBlur={() => setThemeToggleTooltipOpen(false)}
-            whileHover={{ backgroundColor: 'var(--bg-tertiary)', scale: 1.04 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-describedby={themeToggleTooltipOpen ? THEME_TOGGLE_TOOLTIP_ID : undefined}
-            className="inline-flex items-center justify-center"
-            style={{
-              width: SCREENSHOT_BUTTON_SIZE,
-              height: SCREENSHOT_BUTTON_SIZE,
-              borderRadius: Radii.ICON,
-              backgroundColor: 'var(--bg-accentLight)',
-              color: 'var(--content-primary)',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={theme}
-                initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
-                animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
-                transition={{ duration: 0.2 }}
-                className="inline-flex items-center justify-center"
-              >
-                <LineIcon name={theme === 'dark' ? 'sun' : 'moon'} size="S" color="currentColor" />
-              </motion.span>
-            </AnimatePresence>
-          </motion.button>
-          {themeToggleTooltipOpen && (
-            <ControlTooltip id={THEME_TOGGLE_TOOLTIP_ID}>
-              {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            </ControlTooltip>
-          )}
-        </div>
       </div>
 
       <div
+        data-phone-outer=""
         style={{
           width: spec.width * scale,
           height: spec.height * scale,
