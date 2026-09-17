@@ -58,8 +58,11 @@ const PrototypeApp: React.FC = () => {
   const contentMapGraph = contentMapGraphByIteration[designIteration] ?? { nodes: [], edges: [] };
 
   const handleDateChange = (date: DateGroup) => {
+    const newIteration = DEFAULT_ITERATION_BY_DATE[date];
     setSelectedDate(date);
-    setDesignIteration(DEFAULT_ITERATION_BY_DATE[date]);
+    setDesignIteration(newIteration);
+    const firstScreen = screensByIteration[newIteration]?.[0];
+    if (firstScreen) navigate(firstScreen.routePath);
   };
 
   const handleTriggerDidntWin = () => {
@@ -112,7 +115,11 @@ const PrototypeApp: React.FC = () => {
         <SegmentedControl
           items={ITERATIONS_BY_DATE[selectedDate]}
           selectedValue={designIteration}
-          onValueChange={setDesignIteration}
+          onValueChange={(iteration) => {
+            setDesignIteration(iteration);
+            const firstScreen = screensByIteration[iteration]?.[0];
+            if (firstScreen) navigate(firstScreen.routePath);
+          }}
         />
       }
     >
