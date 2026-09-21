@@ -48,6 +48,7 @@ type IPhoneFrameProps = {
   aboveFrame?: React.ReactNode;
   belowFrame?: React.ReactNode;
   rightOfFrame?: React.ReactNode;
+  homeIndicatorColor?: string;
 };
 
 const getScreenshotFileName = () => {
@@ -106,6 +107,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
   aboveFrame,
   belowFrame,
   rightOfFrame,
+  homeIndicatorColor,
 }) => {
   const frame = useFrame();
   const preset = frame?.preset ?? 'medium';
@@ -431,7 +433,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
                 width: spec.platform === 'Android' ? 108 : 134,
                 height: spec.platform === 'Android' ? 4 : 5,
                 borderRadius: 999,
-                backgroundColor: 'var(--content-primary)',
+                backgroundColor: homeIndicatorColor ?? 'var(--content-primary)',
                 opacity: 0.9,
               }}
             />
@@ -555,7 +557,7 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
           style={{
             position: 'absolute',
             left: '100%',
-            marginLeft: 12,
+            marginLeft: 24,
             top: '50%',
             transform: 'translateY(-50%)',
             display: 'flex',

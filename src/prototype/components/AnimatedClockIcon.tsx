@@ -26,15 +26,16 @@ const AnimatedHand: React.FC<{
   tip: { x: number; y: number };
   tickDegrees: number;
   tickIntervalMs: number;
-}> = ({ tip, tickDegrees, tickIntervalMs }) => {
+  speedMultiplier?: number;
+}> = ({ tip, tickDegrees, tickIntervalMs, speedMultiplier = 1 }) => {
   const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setRotation((prev) => prev + tickDegrees);
-    }, tickIntervalMs);
+    }, tickIntervalMs / speedMultiplier);
     return () => clearInterval(interval);
-  }, [tickDegrees, tickIntervalMs]);
+  }, [tickDegrees, tickIntervalMs, speedMultiplier]);
 
   return (
     <motion.path
@@ -50,10 +51,11 @@ const AnimatedHand: React.FC<{
 // Matches the LineIcon component's own rendering (24x24 viewBox, currentColor,
 // round caps/joins) so it drops in as a like-for-like replacement wherever the
 // static "clock" LineIcon was used.
-export const AnimatedClockIcon: React.FC<{ size?: number; color?: string; strokeWidth?: number }> = ({
+export const AnimatedClockIcon: React.FC<{ size?: number; color?: string; strokeWidth?: number; speedMultiplier?: number }> = ({
   size = 20,
   color,
   strokeWidth = 1.5,
+  speedMultiplier = 1,
 }) => (
   <svg
     width={size}
@@ -69,7 +71,7 @@ export const AnimatedClockIcon: React.FC<{ size?: number; color?: string; stroke
     aria-hidden
   >
     <circle cx={CENTER.x} cy={CENTER.y} r="11" />
-    <AnimatedHand tip={HOUR_HAND_TIP} tickDegrees={HOUR_TICK_DEGREES} tickIntervalMs={HOUR_TICK_INTERVAL_MS} />
-    <AnimatedHand tip={MINUTE_HAND_TIP} tickDegrees={MINUTE_TICK_DEGREES} tickIntervalMs={MINUTE_TICK_INTERVAL_MS} />
+    <AnimatedHand tip={HOUR_HAND_TIP} tickDegrees={HOUR_TICK_DEGREES} tickIntervalMs={HOUR_TICK_INTERVAL_MS} speedMultiplier={speedMultiplier} />
+    <AnimatedHand tip={MINUTE_HAND_TIP} tickDegrees={MINUTE_TICK_DEGREES} tickIntervalMs={MINUTE_TICK_INTERVAL_MS} speedMultiplier={speedMultiplier} />
   </svg>
 );

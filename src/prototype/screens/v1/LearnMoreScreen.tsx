@@ -22,7 +22,7 @@ import type { LineIconName } from '../../../design-system/components/LineIcon/ty
 import learnMoreHero from '../../assets/learn-more-hero-fireworks.png';
 
 export const contentMap: ContentMapScreenMetadata = {
-  id: 'sep16-learn-more',
+  id: 'v1-learn-more',
   routePath: '/learn-more',
   label: 'Learn More',
   context: 'Sweepstakes info',
@@ -55,7 +55,7 @@ const HOW_IT_WORKS: { icon: LineIconName; title: string; subtitle: string }[] = 
   },
 ];
 
-const FAQS: { q: string; a: string }[] = [
+const FAQS: { q: string; a: React.ReactNode }[] = [
   {
     q: 'How do I earn tokens?',
     a: 'You get 1 token for each dollar added to Cleo Savings.',
@@ -80,9 +80,13 @@ const FAQS: { q: string; a: string }[] = [
     q: 'When will I find out if I won a prize?',
     a: "The draw happens every {{date}}. You'll get an email if you win, plus a notification in the app.",
   },
+  {
+    q: 'Do I have to save money to enter?',
+    a: <>{'You can also enter manually via '}<a href="#" style={{ color: 'inherit', textDecoration: 'underline' }}>this link</a>{". You'll also have to do this every week."}</>,
+  },
 ];
 
-const FaqItem: React.FC<{ q: string; a: string; isLast: boolean }> = ({ q, a, isLast }) => {
+const FaqItem: React.FC<{ q: string; a: React.ReactNode; isLast: boolean }> = ({ q, a, isLast }) => {
   const [open, setOpen] = useState(true);
 
   return (
@@ -202,7 +206,7 @@ export const LearnMoreScreen: React.FC = () => {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: '50% 70%',
+              objectPosition: '50% 30%',
               pointerEvents: 'none',
             }}
           />
@@ -326,7 +330,7 @@ export const LearnMoreScreen: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 10,
-          backgroundColor: colorRoles.background.primary,
+          backgroundColor: colorRoles.background.baseLight,
           borderTop: `1px solid ${colorRoles.border.default}`,
           padding: `${Spacing.XS}px ${Spacing.S}px`,
           paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.S,
@@ -348,7 +352,7 @@ export const LearnMoreScreen: React.FC = () => {
 
         <VStack gap="XXS">
           <Button
-            label="Hold to enter draw"
+            label="Enter draw"
             variant="primary"
             size="L"
             fullWidth

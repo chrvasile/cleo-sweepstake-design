@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform, useAnimationFrame, animate } from 'framer-motion';
-import type { MotionValue } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Button,
   IconButton,
@@ -44,7 +43,7 @@ import saveHackSwearJar from '../../assets/save-hack-swear-jar.png';
 import saveHackSmartSave from '../../assets/save-hack-smart-save.png';
 
 export const contentMap: ContentMapScreenMetadata = {
-  id: 'savings-sep16-two-step',
+  id: 'savings-v1',
   routePath: '/savings',
   label: 'Savings',
   context: 'Savings home',
@@ -53,7 +52,7 @@ export const contentMap: ContentMapScreenMetadata = {
   subhead: "Widget tile. Tapping Enter draw opens a bottom sheet. The tile only updates once the sheet is dismissed.",
   order: 1,
   options: [
-    { code: 'ENTER_EXTRA_TOKENS', label: 'Get extra tokens', to: 'sep16-two-step-deposit' },
+    { code: 'ENTER_EXTRA_TOKENS', label: 'Get extra tokens', to: 'v1-deposit' },
   ],
 };
 
@@ -200,14 +199,14 @@ const BackgroundCurve: React.FC = () => (
     fill="none"
   >
     <defs>
-      <linearGradient id="savings-curve-gradient-sep16" x1="170.012" x2="191.704" y1="-43.0525" y2="264.78" gradientUnits="userSpaceOnUse">
+      <linearGradient id="savings-curve-gradient-v1" x1="170.012" x2="191.704" y1="-43.0525" y2="264.78" gradientUnits="userSpaceOnUse">
         <stop stopColor={colorRoles.content.tertiary} />
         <stop offset="1" stopColor={colorRoles.content.tertiary} stopOpacity="0" />
       </linearGradient>
     </defs>
     <path
       d="M3 260.338H5.69153H396V1.50033L391 16.5003C391 16.5003 366.244 109.326 320.5 142C303 154.5 268 150 268 150H203.5C162.666 145.625 137.074 156.455 100 176C71.6252 190.959 73 182.5 30.5 215.5C30.5 215.5 20.2874 223.936 15 229.5C8.8274 235.996 0 245 0 245L3 260.338Z"
-      fill="url(#savings-curve-gradient-sep16)"
+      fill="url(#savings-curve-gradient-v1)"
     />
     <path
       d="M2.50002 243.5C2.50002 243.5 18.0198 222.138 33.5851 212.062C156.5 132.5 192.39 150.353 289 151C360.343 151.478 395 1.50033 395 1.50033"
@@ -244,104 +243,6 @@ const PeriodChip: React.FC<{ label: string; isSelected: boolean; onPress: () => 
   </motion.button>
 );
 
-// ─── Draw countdown timer (matches the visual variant's frosted-pill overlay) ──
-
-// ─── Hold-to-enter button ─────────────────────────────────────────────────────
-// User holds for holdDurationMs to confirm entry. A fill sweeps left-to-right
-// during the hold; releasing early retreats it. On completion the button
-// briefly shows "You're in!" before the bottom sheet opens.
-
-const HoldToEnterButton: React.FC<{ holdDurationMs: number; progress: MotionValue<number>; onReady: () => void; onComplete: () => void; onHoldChange: (isHolding: boolean) => void }> = ({ holdDurationMs, progress, onReady, onComplete, onHoldChange }) => {
-  const fillWidth = useTransform(progress, [0, 1], ['0%', '100%']);
-  const [phase, setPhase] = useState<'idle' | 'holding' | 'complete'>('idle');
-  const startTimeRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const completedRef = useRef(false);
-
-  const stopRaf = () => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  };
-
-  const tick = (timestamp: number) => {
-    if (startTimeRef.current === null) return;
-    const p = Math.min((timestamp - startTimeRef.current) / holdDurationMs, 1);
-    progress.set(p);
-    if (p < 1) {
-      rafRef.current = requestAnimationFrame(tick);
-    } else {
-      completedRef.current = true;
-      stopRaf();
-      setPhase('complete');
-      onReady(); // card reacts immediately
-      setTimeout(() => onComplete(), MotionDuration.slow2 + MotionDuration.steady1);
-    }
-  };
-
-  const startHold = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (completedRef.current) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setPhase('holding');
-    onHoldChange(true);
-    startTimeRef.current = performance.now();
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  const endHold = () => {
-    if (completedRef.current) return;
-    stopRaf();
-    setPhase('idle');
-    onHoldChange(false);
-    startTimeRef.current = null;
-    animate(progress, 0, { duration: 0.25, ease: 'easeIn' });
-  };
-
-  const isHolding = phase === 'holding';
-  const isComplete = phase === 'complete';
-
-  return (
-    <motion.button
-      type="button"
-      onPointerDown={startHold}
-      onPointerUp={endHold}
-      onPointerLeave={endHold}
-      onPointerCancel={endHold}
-      className="relative overflow-hidden w-full rounded-BUTTON"
-      style={{
-        height: 40,
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        touchAction: 'none',
-        border: 'none',
-        cursor: isComplete ? 'default' : 'pointer',
-        backgroundColor: isComplete ? colorRoles.background.positiveDark : colorRoles.background.accentMid,
-        transition: 'background-color 0.2s ease',
-      }}
-    >
-      {/* #1B0C0B (accentDark) fill sweeping left to right during hold */}
-      <motion.div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: fillWidth,
-          backgroundColor: colorRoles.background.accentDark,
-          opacity: isComplete ? 0 : 1,
-        }}
-      />
-      {/* Label */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography type="buttonLabel" size="M" color={colorRoles.content.onColor}>
-          {isComplete ? "You're in!" : isHolding ? 'Keep holding…' : 'Hold to enter'}
-        </Typography>
-      </div>
-    </motion.button>
-  );
-};
-
 // ─── Snackbar ─────────────────────────────────────────────────────────────────
 
 const Snackbar: React.FC<{ message: string }> = ({ message }) => (
@@ -357,6 +258,55 @@ const Snackbar: React.FC<{ message: string }> = ({ message }) => (
       {message}
     </Typography>
   </motion.div>
+);
+
+// ─── "Didn't win" inline banner ──────────────────────────────────────────────
+// Hangs below the draw tile; top 8px is tucked behind the card (zIndex trick).
+// The outer motion.div handles height-collapse so content below reflofs up on dismiss.
+
+const DidntWinBanner: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => (
+  <div
+    style={{
+      marginTop: -Spacing.XXS,
+      paddingTop: Spacing.S,
+      paddingBottom: Spacing.XXS,
+      backgroundColor: colorRoles.background.secondary,
+      borderBottomLeftRadius: Radii.CARD,
+      borderBottomRightRadius: Radii.CARD,
+      marginLeft: Spacing.XS,
+      marginRight: Spacing.XS,
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+    }}
+  >
+    {/* Left spacer balances the X so text stays centered */}
+    <div style={{ width: 28, flexShrink: 0 }} />
+    <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+      <Typography type="body" size="S" color={colorRoles.content.tertiary} align="center">
+        No luck for you last week. Try again this week
+      </Typography>
+    </div>
+    <motion.button
+      type="button"
+      onClick={onDismiss}
+      whileTap={{ scale: 0.8 }}
+      aria-label="Dismiss"
+      style={{
+        width: 28,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+    >
+      <LineIcon name="cross" size="XS" color={colorRoles.content.tertiary} />
+    </motion.button>
+  </div>
 );
 
 // ─── "You're in!" full-screen overlay ────────────────────────────────────────
@@ -798,6 +748,208 @@ const YouDidntWinOverlay: React.FC<{
   );
 };
 
+// ─── Countdown clock ──────────────────────────────────────────────────────────
+
+const TICK_COUNT = 50;
+const CLOCK_W = 128;
+const CLOCK_H = 132;
+const CX_CLOCK = CLOCK_W / 2;   // 64
+const CY_CLOCK = CLOCK_H / 2;   // 66
+const R_INNER_CLOCK = 44;       // inner edge of ticks
+const R_OUTER_FULL = 60;        // long tick tip  (16px tick length)
+const R_OUTER_SHORT = 52;       // short tick tip (8px tick length)
+// Ticks simultaneously in transition — 2 keeps the sweep crisp but not one-by-one.
+const FADE_TICKS = 2;
+// After a minute resets, all ticks fill back to full over this many ms.
+const RESET_DURATION_MS = 900;
+// Available sweep time per minute (remaining after the fill-back animation).
+const SWEEP_DURATION_S = 60 - RESET_DURATION_MS / 1000;
+
+const CountdownClock: React.FC<{ days: number; hours: number; minutes: number; variant?: 'classic' | 'alternating' }> = ({ days, hours, minutes: initialMinutes, variant = 'classic' }) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const [totalSecondsElapsed, setTotalSecondsElapsed] = useState(0);
+  const lastSecondMsRef = useRef(Date.now());
+  // sweepStartMsRef: when this minute's sweep began (after fill-back completes).
+  const sweepStartMsRef = useRef(Date.now());
+  // lastMinuteMsRef: timestamp of the most recent minute rollover.
+  const lastMinuteMsRef = useRef<number | null>(null);
+  const totalSecondsRef = useRef(0);
+  // Alternating variant: tracks which phase we're in (0 = long→short, 1 = short→long).
+  const minuteParityRef = useRef(0);
+  const [minuteParity, setMinuteParity] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      lastSecondMsRef.current = now;
+      const next = totalSecondsRef.current + 1;
+      totalSecondsRef.current = next;
+      if (next > 0 && next % 60 === 0) {
+        lastMinuteMsRef.current = now;
+        if (variant === 'classic') {
+          sweepStartMsRef.current = now + RESET_DURATION_MS;
+        } else {
+          const newParity = (minuteParityRef.current + 1) % 2;
+          minuteParityRef.current = newParity;
+          setMinuteParity(newParity);
+          sweepStartMsRef.current = now; // no reset delay — sweep reverses seamlessly
+        }
+      }
+      setTotalSecondsElapsed(next);
+    }, 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant]);
+
+  // Re-renders at ~20fps so all Date.now()-based animation stays live.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 50);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fast-forward: jump to 55s into the current minute so the reset fires in ~5s.
+  useEffect(() => {
+    const handler = () => {
+      const now = Date.now();
+      const currentMinute = Math.floor(totalSecondsRef.current / 60);
+      const target = currentMinute * 60 + 55;
+      totalSecondsRef.current = target;
+      sweepStartMsRef.current = now - 55000; // make sweep appear 55s in
+      lastMinuteMsRef.current = null;        // clear any in-progress reset
+      setTotalSecondsElapsed(target);
+    };
+    window.addEventListener('cleo:fastforward', handler);
+    return () => window.removeEventListener('cleo:fastforward', handler);
+  }, []);
+
+  const displayMinutes = Math.max(0, initialMinutes - Math.floor(totalSecondsElapsed / 60));
+
+  // Fill-back (reset) animation
+  const msSinceReset = lastMinuteMsRef.current !== null ? Date.now() - lastMinuteMsRef.current : Infinity;
+  const isResetting = msSinceReset < RESET_DURATION_MS;
+  const resetFrac = isResetting ? msSinceReset / RESET_DURATION_MS : 1;
+  const resetEased = 1 - (1 - resetFrac) ** 2; // ease-out: snappy start, settles smoothly
+
+  // Sweep position for this minute
+  const sweepElapsedS = Math.max(0, (Date.now() - sweepStartMsRef.current) / 1000);
+  const effectiveProgress = Math.min(TICK_COUNT + FADE_TICKS, sweepElapsedS / SWEEP_DURATION_S * (TICK_COUNT + FADE_TICKS));
+
+  // Parse token hex → RGB so we can interpolate colour smoothly tick-by-tick.
+  const parseHex = (hex: string) => ({
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+  });
+  const TICK_BROWN = parseHex(colors.brown[800]); // full-length colour
+  const TICK_GREY  = parseHex(colors.brown[200]);  // short/elapsed colour
+
+  return (
+    <div style={{ flexShrink: 0 }}>
+      <div style={{ width: CLOCK_W, height: CLOCK_H, borderRadius: 20, position: 'relative' }}>
+        <svg width={CLOCK_W} height={CLOCK_H} viewBox={`0 0 ${CLOCK_W} ${CLOCK_H}`} fill="none" style={{ position: 'absolute', inset: 0 }} aria-hidden="true">
+          <defs>
+            {Array.from({ length: TICK_COUNT }, (_, i) => {
+              const angle = (i * 2 * Math.PI) / TICK_COUNT;
+              const ccwPos = (TICK_COUNT - i) % TICK_COUNT;
+              // sf: 0 = long tick, 1 = short tick
+              // colorFrac: 0 = active brown, 1 = elapsed grey
+              let sf: number;
+              let colorFrac: number;
+              if (variant === 'classic') {
+                sf = isResetting
+                  ? 1 - resetEased
+                  : Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+                colorFrac = sf;
+              } else if (minuteParity === 0) {
+                sf = Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+                colorFrac = sf;
+              } else {
+                // parity 1: short (grey) → long (brown), colour follows size
+                sf = Math.max(0, Math.min(1, 1 - (effectiveProgress - ccwPos) / FADE_TICKS));
+                colorFrac = sf;
+              }
+
+              // Gradient base point (inner edge of tick) and tip point (shrinks as sf → 1)
+              const gx1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
+              const gy1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
+              const rTip = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
+              const gx2 = CX_CLOCK + rTip * Math.sin(angle);
+              const gy2 = CY_CLOCK - rTip * Math.cos(angle);
+
+              // Colour interpolates brown → grey based on colorFrac (independent of sf in alternating)
+              const cr = Math.round(TICK_BROWN.r + (TICK_GREY.r - TICK_BROWN.r) * colorFrac);
+              const cg = Math.round(TICK_BROWN.g + (TICK_GREY.g - TICK_BROWN.g) * colorFrac);
+              const cb = Math.round(TICK_BROWN.b + (TICK_GREY.b - TICK_BROWN.b) * colorFrac);
+              const tipColor = `rgb(${cr},${cg},${cb})`;
+              // Opacity stop offset: 1.0 (brown) → 0.73 (grey Figma spec)
+              const opaqueAt = (1 - 0.27 * sf).toFixed(3);
+
+              return (
+                <linearGradient key={i} id={`tg-${i}`} x1={gx1} y1={gy1} x2={gx2} y2={gy2} gradientUnits="userSpaceOnUse">
+                  <stop stopColor={tipColor} stopOpacity={0} />
+                  <stop offset={opaqueAt} stopColor={tipColor} />
+                </linearGradient>
+              );
+            })}
+          </defs>
+          {Array.from({ length: TICK_COUNT }, (_, i) => {
+            const angle = (i * 2 * Math.PI) / TICK_COUNT;
+            const ccwPos = (TICK_COUNT - i) % TICK_COUNT;
+            let sf: number;
+            if (variant === 'classic') {
+              sf = isResetting
+                ? 1 - resetEased
+                : Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+            } else if (minuteParity === 0) {
+              sf = Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+            } else {
+              sf = Math.max(0, Math.min(1, 1 - (effectiveProgress - ccwPos) / FADE_TICKS));
+            }
+            const rOuter = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
+            const x1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
+            const y1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
+            const x2 = CX_CLOCK + rOuter * Math.sin(angle);
+            const y2 = CY_CLOCK - rOuter * Math.cos(angle);
+            return (
+              <line
+                key={i}
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={`url(#tg-${i})`}
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            );
+          })}
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+              {pad(days)}
+            </Typography>
+            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
+              {':'}
+            </Typography>
+            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+              {pad(hours)}
+            </Typography>
+            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
+              {':'}
+            </Typography>
+            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+              {pad(displayMinutes)}
+            </Typography>
+          </div>
+          <Typography type="label" size="S" color={colorRoles.content.tertiary} style={{ whiteSpace: 'nowrap' }}>
+            before draw
+          </Typography>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 const PERIODS = ['1 W', '1 M', '6 M', '1 Y'] as const;
@@ -812,18 +964,20 @@ export const SavingsScreen: React.FC = () => {
     return state?.depositedAmount != null ? state : null;
   });
   const [entered, setEntered] = useState(depositResult != null);
-  const holdProgress = useMotionValue(0);
-  const isHoldingRef = useRef(false);
-  // Rotation driven imperatively: sine shake during hold (amplitude scales with progress²),
-  // then snaps into the dampened wiggle on complete.
-  const hourglassRotate = useMotionValue(-11.34);
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('1 Y');
 
-  const holdDuration = 1400;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [didntWinOpen, setDidntWinOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);
+  const [didntWinBanner, setDidntWinBanner] = useState(() => {
+    const state = location.state as { didntWinBanner?: boolean } | null;
+    return state?.didntWinBanner === true;
+  });
+  const [clockVariant, setClockVariant] = useState<'classic' | 'alternating'>(() => {
+    const state = location.state as { clockVariant?: string } | null;
+    return state?.clockVariant === 'alternating' ? 'alternating' : 'classic';
+  });
 
   const SNACKBAR_BEAT_MS = MotionDuration.steady1;
   const SNACKBAR_VISIBLE_MS = MotionDuration.slow3 * 4;
@@ -839,34 +993,28 @@ export const SavingsScreen: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered]);
 
-  // Shake params — ref so useAnimationFrame always reads the latest value.
-  const shakeParams = useRef({
-    amplitude: 1.9,      // peak shake angle (°) at full hold
-    startFreqHz: 2.2,    // oscillation speed at hold start
-    maxFreqHz: 6.9,      // oscillation speed at hold end
-    rampExp: 1.7,        // exponent for intensity curve (1=linear, 2=quadratic, 3=cubic)
-    wiggleAmplitude: 5,  // swing angle (°) of the completion wiggle
-    wiggleDuration: 500, // duration (ms) of the completion wiggle
-  });
-
-  // Shake: anchored in place, amplitude and frequency ramp with progress^rampExp.
-  useAnimationFrame((time) => {
-    if (!isHoldingRef.current) return;
-    const p = holdProgress.get();
-    const { amplitude, startFreqHz, maxFreqHz, rampExp } = shakeParams.current;
-    const fStart = startFreqHz * 2 * Math.PI / 1000;
-    const fRange = (maxFreqHz - startFreqHz) * 2 * Math.PI / 1000;
-    hourglassRotate.set(-11.34 + Math.sin(time * (fStart + fRange * p)) * amplitude * Math.pow(p, rampExp));
-  });
-
-  // Notify when hold starts or stops early (pointer lifted before complete).
-  const handleHoldChange = (holding: boolean) => {
-    isHoldingRef.current = holding;
-    if (!holding) {
-      // Released early — spring back to resting angle.
-      animate(hourglassRotate, -11.34, { duration: 0.3, ease: 'easeOut' });
-    }
-  };
+  const drawTargetRef = useRef<Date | null>(null);
+  if (drawTargetRef.current === null) {
+    const t = new Date();
+    t.setDate(t.getDate() + 2);
+    t.setHours(t.getHours() + 17);
+    t.setMinutes(t.getMinutes() + 31);
+    drawTargetRef.current = t;
+  }
+  const [countdown, setCountdown] = useState(() => ({ days: 2, hours: 17, minutes: 31 }));
+  useEffect(() => {
+    const target = drawTargetRef.current!;
+    const id = setInterval(() => {
+      const diff = target.getTime() - Date.now();
+      const totalMinutes = Math.max(0, Math.floor(diff / 60000));
+      setCountdown({
+        days: Math.floor(totalMinutes / (60 * 24)),
+        hours: Math.floor((totalMinutes % (60 * 24)) / 60),
+        minutes: totalMinutes % 60,
+      });
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // Clear navigation state on return from deposit so a refresh doesn't re-trigger entered state.
   useEffect(() => {
@@ -877,32 +1025,25 @@ export const SavingsScreen: React.FC = () => {
 
   // Overlay trigger from viewport buttons (e.g. "Won" / "Didn't win" buttons beside the phone).
   useEffect(() => {
-    const state = location.state as { triggerOverlay?: string } | null;
+    const state = location.state as { triggerOverlay?: string; didntWinBanner?: boolean; clockVariant?: string } | null;
     if (state?.triggerOverlay === 'didnt-win') {
       setDidntWinOpen(true);
       navigate(location.pathname, { replace: true, state: null });
     } else if (state?.triggerOverlay === 'won') {
       setWonOpen(true);
       navigate(location.pathname, { replace: true, state: null });
+    } else if (state?.didntWinBanner !== undefined) {
+      setDidntWinBanner(state.didntWinBanner);
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (state?.clockVariant !== undefined) {
+      setClockVariant(state.clockVariant as 'classic' | 'alternating');
+      navigate(location.pathname, { replace: true, state: null });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
-  // Fires immediately when hold hits 100% — tension releases into dampened wiggle.
-  const handleHoldReady = () => {
-    isHoldingRef.current = false;
-    setEntered(true);
-    const { wiggleAmplitude, wiggleDuration } = shakeParams.current;
-    animate(
-      hourglassRotate,
-      [-11.34, -11.34 - wiggleAmplitude, -11.34 + wiggleAmplitude, -11.34 - wiggleAmplitude * 0.75, -11.34 + wiggleAmplitude * 0.75, -11.34],
-      { duration: msToSeconds(wiggleDuration), ease: 'easeInOut', times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
-    );
-  };
-
-  // Fires after the button's 480ms success beat — snackbar confirms entry.
   const handleEnterDraw = () => {
-    // no-op: snackbar is triggered by the entered state change in useEffect
+    setEntered(true);
   };
 
   const handleDismissSheet = () => {
@@ -928,7 +1069,7 @@ export const SavingsScreen: React.FC = () => {
           justify="between"
           align="center"
           className="w-full"
-          style={{ paddingTop: insets.top + Spacing.XXS, paddingLeft: Spacing.S, paddingRight: Spacing.S }}
+          style={{ paddingTop: insets.top + Spacing.XXS, paddingLeft: Spacing.XXS, paddingRight: Spacing.S }}
         >
           <IconButton icon="chevron-left" variant="primary" label="Back" onPress={() => navigate('/')} />
           <Typography type="headline" size="S" color={colorRoles.content.primary}>
@@ -1001,110 +1142,55 @@ export const SavingsScreen: React.FC = () => {
             />
           </HStack>
 
-          {/* Sweepstakes draw tile — widget variant */}
+          {/* Sweepstakes draw tile */}
           <VStack gap="XS" align="start" className="w-full">
             <Typography type="headline" size="S" color={colorRoles.content.primary}>
               Weekly $3,000 draw
             </Typography>
 
-            <div
-              className="relative w-full rounded-CARD border border-default bg-white p-S"
-              style={{ overflow: 'hidden' }}
-            >
+            {/* Wrapper keeps card + banner together so VStack gap doesn't separate them */}
+            <div className="w-full">
+              {/* zIndex: 1 so card renders on top of the banner's tucked top edge */}
               <div
-                className="absolute flex items-center justify-center"
-                style={{ left: 195, top: -13, width: 237.522, height: 237.522, cursor: 'pointer' }}
-                onDoubleClick={() => setDidntWinOpen(true)}
+                className="w-full rounded-CARD border border-default p-S"
+                style={{ backgroundColor: colorRoles.background.baseLight, position: 'relative', zIndex: 1 }}
               >
-                {/* Rotation driven imperatively via hourglassRotate:
-                    hold → sine shake (amplitude ramps with progress²), complete → dampened wiggle. */}
-                <motion.div style={{ rotate: hourglassRotate }}
-                >
-                  <div className="relative" style={{ width: 201.796, height: 201.796 }}>
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                      <img
-                        src={sweepstakesHourglass}
-                        alt=""
-                        className="absolute max-w-none"
-                        style={{ left: '-2.41%', top: '-0.01%', width: '100%', height: '100%' }}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
+                <HStack justify="between" align="center" className="w-full">
+                  <VStack gap="S" align="start" style={{ flex: 1, minWidth: 0, marginRight: Spacing.XS }}>
+                    <VStack gap="XXS" align="start" className="w-full">
+                      <Typography type="bodyStrong" size="L" color={colorRoles.content.primary}>
+                        {entered ? "You're in the draw!" : "You've got 177 tokens"}
+                      </Typography>
+                      <Typography type="body" size="M" color={colorRoles.content.secondary}>
+                        {entered
+                          ? <>{'You have 177 tokens. '}<button type="button" onClick={() => navigate('/learn-more')} style={{ display: 'inline', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', font: 'inherit', color: 'inherit' }}>Learn how</button>{' to get more.'}</>
+                          : <>{'Save more to get extra tokens. '}<button type="button" onClick={() => navigate('/learn-more')} style={{ display: 'inline', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', font: 'inherit', color: 'inherit' }}>Learn how</button></>
+                        }
+                      </Typography>
+                    </VStack>
+                    {entered ? (
+                      <Button label="Get more tokens" variant="secondary" size="M" fullWidth onPress={handleGetMoreTokens} />
+                    ) : (
+                      <Button label="Enter the draw" variant="primary" size="M" fullWidth onPress={handleEnterDraw} />
+                    )}
+                  </VStack>
+                  <CountdownClock days={countdown.days} hours={countdown.hours} minutes={countdown.minutes} variant={clockVariant} />
+                </HStack>
               </div>
 
-              <VStack gap="S" align="start" style={{ maxWidth: 200, position: 'relative' }}>
-                <VStack gap="XXS" align="start" className="w-full">
-                  <Tag variant="success" size="S">
-                    <AnimatedClockIcon size={12} color={colorRoles.content.positiveDark} />
-                    <p style={{ margin: 0, fontSize: 11, lineHeight: '14px' }}>
-                      <Typography as="span" type="labelStrong" size="S" weight="Medium" color={colorRoles.content.positiveDark}>
-                        Next draw in{' '}
-                      </Typography>
-                      <Typography as="span" type="labelStrong" size="S" weight="Bold" color={colorRoles.content.positiveDark}>
-                        2d 2hrs 14m
-                      </Typography>
-                    </p>
-                  </Tag>
-                  {/* Both copies live in the same grid cell, so this block is always
-                      sized to the content and never resizes when the state swaps.
-                      Only opacity changes; the hidden copy is non-interactive. */}
-                  <div style={{ display: 'grid', width: '100%' }}>
-                    <motion.p
-                      style={{ gridArea: '1 / 1', margin: 0, lineHeight: '18px', pointerEvents: entered ? 'auto' : 'none' }}
-                      initial={false}
-                      animate={{ opacity: entered ? 1 : 0 }}
-                      transition={framerFromDef(MotionTransitions.fadeIn.steady1)}
-                    >
-                      <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
-                        You entered{' '}
-                      </Typography>
-                      <Typography as="span" type="body" size="M" weight="Bold" color={colorRoles.content.tertiary}>
-                        177 tokens
-                      </Typography>
-                      <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
-                        . Get more by adding to your savings
-                      </Typography>
-                    </motion.p>
-                    <motion.p
-                      style={{ gridArea: '1 / 1', margin: 0, lineHeight: '18px', pointerEvents: entered ? 'none' : 'auto' }}
-                      initial={false}
-                      animate={{ opacity: entered ? 0 : 1 }}
-                      transition={framerFromDef(MotionTransitions.fadeIn.steady1)}
-                    >
-                      <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
-                        You have{' '}
-                      </Typography>
-                      <Typography as="span" type="body" size="M" weight="Bold" color={colorRoles.content.tertiary}>
-                        177 tokens
-                      </Typography>
-                      <Typography as="span" type="body" size="M" color={colorRoles.content.tertiary}>
-                        . Save more for extra chances to win
-                      </Typography>
-                    </motion.p>
-                  </div>
-                </VStack>
-                {/* Both buttons share one grid cell too — identical footprint,
-                    so swapping them can never change the card height. */}
-                <div style={{ display: 'grid', width: '100%' }}>
+              <AnimatePresence>
+                {didntWinBanner && (
                   <motion.div
-                    style={{ gridArea: '1 / 1', display: 'flex', width: '100%', pointerEvents: entered ? 'auto' : 'none' }}
-                    initial={false}
-                    animate={{ opacity: entered ? 1 : 0 }}
-                    transition={framerFromDef(MotionTransitions.fadeIn.steady1)}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={framerFromDef(MotionTransitions.slideIn.steady1)}
+                    style={{ overflow: 'hidden' }}
                   >
-                    <Button label="Get more tokens" variant="secondary" onPress={handleGetMoreTokens} />
+                    <DidntWinBanner onDismiss={() => setDidntWinBanner(false)} />
                   </motion.div>
-                  <motion.div
-                    style={{ gridArea: '1 / 1', display: 'flex', width: '100%', pointerEvents: entered ? 'none' : 'auto' }}
-                    initial={false}
-                    animate={{ opacity: entered ? 0 : 1 }}
-                    transition={framerFromDef(MotionTransitions.fadeIn.steady1)}
-                  >
-                    <HoldToEnterButton holdDurationMs={holdDuration} progress={holdProgress} onReady={handleHoldReady} onComplete={handleEnterDraw} onHoldChange={handleHoldChange} />
-                  </motion.div>
-                </div>
-              </VStack>
+                )}
+              </AnimatePresence>
             </div>
           </VStack>
 
