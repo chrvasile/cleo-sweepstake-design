@@ -67,7 +67,7 @@ const FloatingDrawBanner: React.FC<{
       </Typography>
     </div>
     <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.XXXS, flexShrink: 0 }}>
-      <Button label="See more" variant="primary" palette="dark" size="S" onPress={onSeeMore} />
+      <Button label="Learn more" variant="primary" palette="dark" size="S" onPress={onSeeMore} />
       <motion.button
         type="button"
         onClick={onDismiss}
