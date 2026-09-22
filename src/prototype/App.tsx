@@ -46,6 +46,35 @@ const OverlayTriggerButton: React.FC<{ label: string; onClick: () => void }> = (
   </motion.button>
 );
 
+const VariantChip: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
+  <motion.button
+    type="button"
+    onClick={onClick}
+    whileHover={{ scale: 1.03 }}
+    whileTap={{ scale: 0.93 }}
+    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+    style={{
+      height: 28,
+      paddingLeft: Spacing.XS,
+      paddingRight: Spacing.XS,
+      borderRadius: Radii.BUTTON,
+      backgroundColor: active ? colorRoles.background.accentDark : colorRoles.background.secondary,
+      border: 'none',
+      cursor: 'pointer',
+      fontFamily: fontFamilies.body,
+      fontSize: typographySizeMap.S.label,
+      fontWeight: fontWeights.SemiBold,
+      color: active ? colorRoles.content.onColor : colorRoles.content.secondary,
+      whiteSpace: 'nowrap',
+      textAlign: 'left',
+      width: '100%',
+      transition: 'background-color 0.15s ease, color 0.15s ease',
+    }}
+  >
+    {label}
+  </motion.button>
+);
+
 const LabelledToggle: React.FC<{ label: string; active: boolean; onToggle: () => void }> = ({ label, active, onToggle }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.XXS, height: 32 }}>
     <span style={{
@@ -94,12 +123,20 @@ const LabelledToggle: React.FC<{ label: string; active: boolean; onToggle: () =>
   </div>
 );
 
+type WealthHomeVariant = 'v1' | 'v1-bottom-banner' | 'v1-card-bottom';
+type SavingsVariant = 'v1' | 'v2';
+type SavingsState = 'not-entered' | 'entered' | 'hasnt-won';
+type WinnerVariant = 'simple' | 'shareable';
+
 const PrototypeApp: React.FC = () => {
   const [isExportingFigmaFlow, setIsExportingFigmaFlow] = useState(false);
   const [selectedDate, setSelectedDate] = useState<DateGroup>('v1');
   const [designIteration, setDesignIteration] = useState<DesignIteration>(DEFAULT_ITERATION_BY_DATE['v1']);
-  const [didntWinBanner, setDidntWinBanner] = useState(false);
+  const [wealthHomeVariant, setWealthHomeVariant] = useState<WealthHomeVariant>('v1');
+  const [savingsVariant, setSavingsVariant] = useState<SavingsVariant>('v1');
+  const [savingsState, setSavingsState] = useState<SavingsState>('not-entered');
   const [clockVariant, setClockVariant] = useState<'classic' | 'alternating'>('classic');
+  const [winnerVariant, setWinnerVariant] = useState<WinnerVariant>('simple');
   const navigate = useNavigate();
   const location = useLocation();
   const frame = useFrame();
@@ -108,7 +145,27 @@ const PrototypeApp: React.FC = () => {
   const prototypeScreens = screensByIteration[designIteration] ?? [];
   const contentMapGraph = contentMapGraphByIteration[designIteration] ?? { nodes: [], edges: [] };
 
-  useEffect(() => { navigate('/savings'); }, []);
+  useEffect(() => { navigate('/'); }, []);
+
+  // Keep the Savings control in sync when the user navigates manually.
+  useEffect(() => {
+    if (location.pathname !== '/savings') return;
+    const state = location.state as { depositedAmount?: number; didntWinBanner?: boolean } | null;
+    if (state?.depositedAmount != null) {
+      setSavingsState('entered');
+    } else if (state?.didntWinBanner === true) {
+      setSavingsState('hasnt-won');
+    } else if (state == null || (state.depositedAmount == null && !state.didntWinBanner)) {
+      setSavingsState('not-entered');
+    }
+  }, [location]);
+
+  // Sync when user taps "Enter the draw" in-place (no navigation).
+  useEffect(() => {
+    const handler = () => setSavingsState('entered');
+    window.addEventListener('cleo:savings:entered', handler);
+    return () => window.removeEventListener('cleo:savings:entered', handler);
+  }, []);
 
   const handleDateChange = (date: DateGroup) => {
     const newIteration = DEFAULT_ITERATION_BY_DATE[date];
@@ -118,30 +175,38 @@ const PrototypeApp: React.FC = () => {
     if (firstScreen) navigate(firstScreen.routePath);
   };
 
-  const handleToggleDidntWinBanner = () => {
-    const next = !didntWinBanner;
-    setDidntWinBanner(next);
-    navigate('/savings', { state: { didntWinBanner: next } });
-  };
-
   const handleToggleClockVariant = () => {
     const next: 'classic' | 'alternating' = clockVariant === 'classic' ? 'alternating' : 'classic';
     setClockVariant(next);
     navigate('/savings', { state: { clockVariant: next } });
   };
 
-  const handleToggleBottomBanner = () => {
-    const next = designIteration === 'v1-bottom-banner' ? 'v1' : 'v1-bottom-banner';
-    setDesignIteration(next);
+  const handleWealthHomeVariantChange = (variant: WealthHomeVariant) => {
+    setWealthHomeVariant(variant);
+    setDesignIteration(variant);
     navigate('/');
   };
 
-  const handleTriggerWon = () => {
-    if (selectedDate === 'v1') {
-      navigate('/winner');
-    } else {
-      navigate('/savings', { state: { triggerOverlay: 'won' } });
+  const handleSavingsVariantChange = (variant: SavingsVariant) => {
+    setSavingsVariant(variant);
+    setSavingsState('not-entered');
+    navigate('/savings', { state: { savingsVariant: variant } });
+  };
+
+  const handleSavingsStateChange = (state: SavingsState) => {
+    setSavingsState(state);
+    if (state === 'not-entered') {
+      navigate('/savings', { state: { savingsVariant } });
+    } else if (state === 'entered') {
+      navigate('/savings', { state: { depositedAmount: 50, savingsVariant } });
+    } else if (state === 'hasnt-won') {
+      navigate('/savings', { state: { didntWinBanner: true, savingsVariant } });
     }
+  };
+
+  const handleWinnerVariantChange = (variant: WinnerVariant) => {
+    setWinnerVariant(variant);
+    navigate('/winner', { state: { winnerVariant: variant } });
   };
 
   const handleExportFigmaFlow = async () => {
@@ -168,7 +233,7 @@ const PrototypeApp: React.FC = () => {
     <IPhoneFrame
       isExportingFigmaFlow={isExportingFigmaFlow}
       onExportFigmaFlow={handleExportFigmaFlow}
-      homeIndicatorColor={location.pathname === '/winner' ? '#ffffff' : undefined}
+      homeIndicatorColor={['/winner', '/entered-draw', '/deposit-success'].includes(location.pathname) ? '#ffffff' : undefined}
       rightOfFrame={
         <div style={{
           backgroundColor: colorRoles.background.primary,
@@ -184,7 +249,6 @@ const PrototypeApp: React.FC = () => {
             <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Pages
             </span>
-            <OverlayTriggerButton label="Won" onClick={handleTriggerWon} />
             <OverlayTriggerButton label="Learn More" onClick={() => navigate('/learn-more')} />
           </div>
           <div style={{ height: 1, backgroundColor: colorRoles.border.default }} />
@@ -195,14 +259,78 @@ const PrototypeApp: React.FC = () => {
             <LabelledToggle label="Alt. sweep" active={clockVariant === 'alternating'} onToggle={handleToggleClockVariant} />
             <OverlayTriggerButton label="Skip to 55s" onClick={() => window.dispatchEvent(new CustomEvent('cleo:fastforward'))} />
           </div>
-          <div style={{ height: 1, backgroundColor: colorRoles.border.default }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: Spacing.XXS }}>
-            <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Banners
-            </span>
-            <LabelledToggle label="Bottom banner" active={designIteration === 'v1-bottom-banner'} onToggle={handleToggleBottomBanner} />
-            <LabelledToggle label="Didn't win" active={didntWinBanner} onToggle={handleToggleDidntWinBanner} />
-          </div>
+          {selectedDate === 'v1' && (
+            <>
+              <div style={{ height: 1, backgroundColor: colorRoles.border.default }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: Spacing.XXS }}>
+                <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Wealth Home
+                </span>
+                {([
+                  { value: 'v1', label: 'Card top' },
+                  { value: 'v1-card-bottom', label: 'Card bottom' },
+                  { value: 'v1-bottom-banner', label: 'Bottom banner' },
+                ] as { value: WealthHomeVariant; label: string }[]).map(({ value, label }) => (
+                  <VariantChip
+                    key={value}
+                    label={label}
+                    active={wealthHomeVariant === value}
+                    onClick={() => handleWealthHomeVariantChange(value)}
+                  />
+                ))}
+              </div>
+              <div style={{ height: 1, backgroundColor: colorRoles.border.default }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: Spacing.XXS }}>
+                <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Savings
+                </span>
+                {/* Variant row */}
+                <div style={{ display: 'flex', gap: Spacing.XXXS }}>
+                  {([
+                    { value: 'v1', label: 'Var 1' },
+                    { value: 'v2', label: 'Var 2' },
+                  ] as { value: SavingsVariant; label: string }[]).map(({ value, label }) => (
+                    <VariantChip
+                      key={value}
+                      label={label}
+                      active={savingsVariant === value}
+                      onClick={() => handleSavingsVariantChange(value)}
+                    />
+                  ))}
+                </div>
+                {/* State row */}
+                {([
+                  { value: 'not-entered', label: 'Not entered' },
+                  { value: 'entered', label: 'Entered' },
+                  { value: 'hasnt-won', label: "Hasn't won" },
+                ] as { value: SavingsState; label: string }[]).map(({ value, label }) => (
+                  <VariantChip
+                    key={value}
+                    label={label}
+                    active={savingsState === value}
+                    onClick={() => handleSavingsStateChange(value)}
+                  />
+                ))}
+              </div>
+              <div style={{ height: 1, backgroundColor: colorRoles.border.default }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: Spacing.XXS }}>
+                <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Winner
+                </span>
+                {([
+                  { value: 'simple', label: 'Simple' },
+                  { value: 'shareable', label: 'Shareable' },
+                ] as { value: WinnerVariant; label: string }[]).map(({ value, label }) => (
+                  <VariantChip
+                    key={value}
+                    label={label}
+                    active={winnerVariant === value}
+                    onClick={() => handleWinnerVariantChange(value)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       }
       aboveFrame={

@@ -173,12 +173,8 @@ export const DepositScreen: React.FC = () => {
   };
 
   const handleDeposit = () => {
-    navigate('/savings', {
-      replace: true,
-      state: {
-        depositedAmount: numericAmount,
-        depositedTokens: numericAmount,
-      },
+    navigate('/deposit-success', {
+      state: { depositedAmount: numericAmount },
     });
   };
 

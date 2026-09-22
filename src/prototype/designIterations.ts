@@ -10,7 +10,8 @@ export type DesignIteration =
   | 'two-step-no-modal'
   | 'sep16-two-step'
   | 'v1'
-  | 'v1-bottom-banner';
+  | 'v1-bottom-banner'
+  | 'v1-card-bottom';
 
 // Sep 1, Sep 8 and Sep 17 are frozen — no further changes to those variants.
 export const DATE_GROUPS: readonly SegmentedControlItem<DateGroup>[] = [
@@ -54,4 +55,5 @@ export const DESIGN_ITERATION_LABEL: Record<DesignIteration, string> = {
   'sep16-two-step': 'Two-step entry',
   v1: 'Savings card',
   'v1-bottom-banner': 'Bottom banner',
+  'v1-card-bottom': 'Card bottom',
 };

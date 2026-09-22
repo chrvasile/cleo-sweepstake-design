@@ -978,9 +978,24 @@ export const SavingsScreen: React.FC = () => {
     const state = location.state as { clockVariant?: string } | null;
     return state?.clockVariant === 'alternating' ? 'alternating' : 'classic';
   });
+  const [savingsVariant, setSavingsVariant] = useState<'v1' | 'v2'>(() => {
+    const state = location.state as { savingsVariant?: string } | null;
+    return state?.savingsVariant === 'v2' ? 'v2' : 'v1';
+  });
+  const [customSnackbar, setCustomSnackbar] = useState<string | null>(() => {
+    const state = location.state as { snackbarMessage?: string } | null;
+    return state?.snackbarMessage ?? null;
+  });
 
   const SNACKBAR_BEAT_MS = MotionDuration.steady1;
   const SNACKBAR_VISIBLE_MS = MotionDuration.slow3 * 4;
+
+  useEffect(() => {
+    if (!customSnackbar) return;
+    const timer = setTimeout(() => setCustomSnackbar(null), SNACKBAR_BEAT_MS + SNACKBAR_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customSnackbar]);
 
   useEffect(() => {
     if (!entered || depositResult != null) return;
@@ -1025,7 +1040,7 @@ export const SavingsScreen: React.FC = () => {
 
   // Overlay trigger from viewport buttons (e.g. "Won" / "Didn't win" buttons beside the phone).
   useEffect(() => {
-    const state = location.state as { triggerOverlay?: string; didntWinBanner?: boolean; clockVariant?: string } | null;
+    const state = location.state as { triggerOverlay?: string; didntWinBanner?: boolean; clockVariant?: string; savingsVariant?: string } | null;
     if (state?.triggerOverlay === 'didnt-win') {
       setDidntWinOpen(true);
       navigate(location.pathname, { replace: true, state: null });
@@ -1038,12 +1053,24 @@ export const SavingsScreen: React.FC = () => {
     } else if (state?.clockVariant !== undefined) {
       setClockVariant(state.clockVariant as 'classic' | 'alternating');
       navigate(location.pathname, { replace: true, state: null });
+    } else if (state?.savingsVariant !== undefined) {
+      setSavingsVariant(state.savingsVariant === 'v2' ? 'v2' : 'v1');
+      navigate(location.pathname, { replace: true, state: null });
+    } else if ((state as { enteredDraw?: boolean } | null)?.enteredDraw === true) {
+      setEntered(true);
+      setSavingsVariant('v1');
+      navigate(location.pathname, { replace: true, state: null });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
   const handleEnterDraw = () => {
-    setEntered(true);
+    if (savingsVariant === 'v2') {
+      navigate('/entered-draw');
+    } else {
+      setEntered(true);
+      window.dispatchEvent(new CustomEvent('cleo:savings:entered'));
+    }
   };
 
   const handleDismissSheet = () => {
@@ -1269,6 +1296,17 @@ export const SavingsScreen: React.FC = () => {
             style={{ bottom: insets.bottom + Spacing.S, paddingLeft: Spacing.S, paddingRight: Spacing.S }}
           >
             <Snackbar message="You're in! Deposit more into your savings for more chances to win." />
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {customSnackbar && (
+          <div
+            className="absolute w-full"
+            style={{ bottom: insets.bottom + Spacing.S, paddingLeft: Spacing.S, paddingRight: Spacing.S }}
+          >
+            <Snackbar message={customSnackbar} />
           </div>
         )}
       </AnimatePresence>

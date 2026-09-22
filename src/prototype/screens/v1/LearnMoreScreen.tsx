@@ -356,7 +356,13 @@ export const LearnMoreScreen: React.FC = () => {
             variant="primary"
             size="L"
             fullWidth
-            onPress={() => navigate(-1)}
+            onPress={() => navigate('/savings', {
+              replace: true,
+              state: {
+                enteredDraw: true,
+                snackbarMessage: "You're in! Deposit more into your savings for more chances to win.",
+              },
+            })}
           />
           <Button
             label="Not now"
