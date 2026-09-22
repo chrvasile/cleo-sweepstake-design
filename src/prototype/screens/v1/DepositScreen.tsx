@@ -205,7 +205,7 @@ export const DepositScreen: React.FC = () => {
       <div style={{ padding: `${Spacing.M}px ${Spacing.S}px 0` }}>
         <VStack gap="XXXS" align="start">
           <Typography type="headline" size="M" color={colorRoles.content.primary}>
-            How much are you putting in?
+            One token for each dollar. How much are you putting in?
           </Typography>
           <Typography type="body" size="L" color={colorRoles.content.secondary}>
             Money takes up to 3 business days to land in your savings

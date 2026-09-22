@@ -80,10 +80,6 @@ const FAQS: { q: string; a: React.ReactNode }[] = [
     q: 'When will I find out if I won a prize?',
     a: "The draw happens every {{date}}. You'll get an email if you win, plus a notification in the app.",
   },
-  {
-    q: 'Do I have to save money to enter?',
-    a: <>{'You can also enter manually via '}<a href="#" style={{ color: 'inherit', textDecoration: 'underline' }}>this link</a>{". You'll also have to do this every week."}</>,
-  },
 ];
 
 const FaqItem: React.FC<{ q: string; a: React.ReactNode; isLast: boolean }> = ({ q, a, isLast }) => {
