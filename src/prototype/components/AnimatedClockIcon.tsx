@@ -43,7 +43,7 @@ const AnimatedHand: React.FC<{
       stroke="currentColor"
       animate={{ rotate: rotation }}
       transition={TICK_TRANSITION}
-      style={{ originX: `${CENTER.x}px`, originY: `${CENTER.y}px` }}
+      style={{ originX: 0.5, originY: 0.5 }}
     />
   );
 };

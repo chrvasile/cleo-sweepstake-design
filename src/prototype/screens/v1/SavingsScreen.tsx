@@ -765,7 +765,9 @@ const RESET_DURATION_MS = 900;
 // Available sweep time per minute (remaining after the fill-back animation).
 const SWEEP_DURATION_S = 60 - RESET_DURATION_MS / 1000;
 
-const CountdownClock: React.FC<{ days: number; hours: number; minutes: number; variant?: 'classic' | 'alternating' }> = ({ days, hours, minutes: initialMinutes, variant = 'classic' }) => {
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const CountdownClock: React.FC<{ days: number; hours: number; minutes: number; variant?: 'classic' | 'alternating' | 'pulse'; drawTarget?: Date }> = ({ days, hours, minutes: initialMinutes, variant = 'classic', drawTarget }) => {
   const pad = (n: number) => String(n).padStart(2, '0');
 
   const [totalSecondsElapsed, setTotalSecondsElapsed] = useState(0);
@@ -832,9 +834,15 @@ const CountdownClock: React.FC<{ days: number; hours: number; minutes: number; v
   const resetFrac = isResetting ? msSinceReset / RESET_DURATION_MS : 1;
   const resetEased = 1 - (1 - resetFrac) ** 2; // ease-out: snappy start, settles smoothly
 
-  // Sweep position for this minute
+  // Sweep position for this minute (classic / alternating)
   const sweepElapsedS = Math.max(0, (Date.now() - sweepStartMsRef.current) / 1000);
   const effectiveProgress = Math.min(TICK_COUNT + FADE_TICKS, sweepElapsedS / SWEEP_DURATION_S * (TICK_COUNT + FADE_TICKS));
+
+  // Sweep position for the full week (pulse): how many ticks have elapsed out of TICK_COUNT.
+  // drawTarget is always set when variant === 'pulse', but fall back to 0 if not.
+  const weekMsRemaining = drawTarget ? Math.max(0, drawTarget.getTime() - Date.now()) : 0;
+  const weekElapsedFraction = drawTarget ? 1 - weekMsRemaining / WEEK_MS : 0;
+  const weekProgress = weekElapsedFraction * (TICK_COUNT + FADE_TICKS);
 
   // Parse token hex → RGB so we can interpolate colour smoothly tick-by-tick.
   const parseHex = (hex: string) => ({
@@ -845,109 +853,159 @@ const CountdownClock: React.FC<{ days: number; hours: number; minutes: number; v
   const TICK_BROWN = parseHex(colors.brown[800]); // full-length colour
   const TICK_GREY  = parseHex(colors.brown[200]);  // short/elapsed colour
 
-  return (
-    <div style={{ flexShrink: 0 }}>
-      <div style={{ width: CLOCK_W, height: CLOCK_H, borderRadius: 20, position: 'relative' }}>
-        <svg width={CLOCK_W} height={CLOCK_H} viewBox={`0 0 ${CLOCK_W} ${CLOCK_H}`} fill="none" style={{ position: 'absolute', inset: 0 }} aria-hidden="true">
-          <defs>
-            {Array.from({ length: TICK_COUNT }, (_, i) => {
-              const angle = (i * 2 * Math.PI) / TICK_COUNT;
-              const ccwPos = (TICK_COUNT - i) % TICK_COUNT;
-              // sf: 0 = long tick, 1 = short tick
-              // colorFrac: 0 = active brown, 1 = elapsed grey
-              let sf: number;
-              let colorFrac: number;
-              if (variant === 'classic') {
-                sf = isResetting
-                  ? 1 - resetEased
-                  : Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
-                colorFrac = sf;
-              } else if (minuteParity === 0) {
-                sf = Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
-                colorFrac = sf;
-              } else {
-                // parity 1: short (grey) → long (brown), colour follows size
-                sf = Math.max(0, Math.min(1, 1 - (effectiveProgress - ccwPos) / FADE_TICKS));
-                colorFrac = sf;
-              }
-
-              // Gradient base point (inner edge of tick) and tip point (shrinks as sf → 1)
-              const gx1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
-              const gy1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
-              const rTip = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
-              const gx2 = CX_CLOCK + rTip * Math.sin(angle);
-              const gy2 = CY_CLOCK - rTip * Math.cos(angle);
-
-              // Colour interpolates brown → grey based on colorFrac (independent of sf in alternating)
-              const cr = Math.round(TICK_BROWN.r + (TICK_GREY.r - TICK_BROWN.r) * colorFrac);
-              const cg = Math.round(TICK_BROWN.g + (TICK_GREY.g - TICK_BROWN.g) * colorFrac);
-              const cb = Math.round(TICK_BROWN.b + (TICK_GREY.b - TICK_BROWN.b) * colorFrac);
-              const tipColor = `rgb(${cr},${cg},${cb})`;
-              // Opacity stop offset: 1.0 (brown) → 0.73 (grey Figma spec)
-              const opaqueAt = (1 - 0.27 * sf).toFixed(3);
-
-              return (
-                <linearGradient key={i} id={`tg-${i}`} x1={gx1} y1={gy1} x2={gx2} y2={gy2} gradientUnits="userSpaceOnUse">
-                  <stop stopColor={tipColor} stopOpacity={0} />
-                  <stop offset={opaqueAt} stopColor={tipColor} />
-                </linearGradient>
-              );
-            })}
-          </defs>
+  const tickSvg = (
+    <svg width={CLOCK_W} height={CLOCK_H} viewBox={`0 0 ${CLOCK_W} ${CLOCK_H}`} fill="none" style={{ position: 'absolute', inset: 0 }} aria-hidden="true">
+        <defs>
           {Array.from({ length: TICK_COUNT }, (_, i) => {
             const angle = (i * 2 * Math.PI) / TICK_COUNT;
             const ccwPos = (TICK_COUNT - i) % TICK_COUNT;
+            // sf: 0 = long tick, 1 = short tick
+            // colorFrac: 0 = active brown, 1 = elapsed grey
             let sf: number;
-            if (variant === 'classic') {
+            let colorFrac: number;
+            if (variant === 'pulse') {
+              sf = Math.max(0, Math.min(1, (weekProgress - ccwPos) / FADE_TICKS));
+              colorFrac = sf;
+            } else if (variant === 'classic') {
               sf = isResetting
                 ? 1 - resetEased
                 : Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+              colorFrac = sf;
             } else if (minuteParity === 0) {
               sf = Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+              colorFrac = sf;
             } else {
+              // parity 1: short (grey) → long (brown), colour follows size
               sf = Math.max(0, Math.min(1, 1 - (effectiveProgress - ccwPos) / FADE_TICKS));
+              colorFrac = sf;
             }
-            const rOuter = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
-            const x1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
-            const y1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
-            const x2 = CX_CLOCK + rOuter * Math.sin(angle);
-            const y2 = CY_CLOCK - rOuter * Math.cos(angle);
+
+            // Gradient base point (inner edge of tick) and tip point (shrinks as sf → 1)
+            const gx1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
+            const gy1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
+            const rTip = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
+            const gx2 = CX_CLOCK + rTip * Math.sin(angle);
+            const gy2 = CY_CLOCK - rTip * Math.cos(angle);
+
+            // Colour interpolates brown → grey based on colorFrac (independent of sf in alternating)
+            const cr = Math.round(TICK_BROWN.r + (TICK_GREY.r - TICK_BROWN.r) * colorFrac);
+            const cg = Math.round(TICK_BROWN.g + (TICK_GREY.g - TICK_BROWN.g) * colorFrac);
+            const cb = Math.round(TICK_BROWN.b + (TICK_GREY.b - TICK_BROWN.b) * colorFrac);
+            const tipColor = `rgb(${cr},${cg},${cb})`;
+            // Opacity stop offset: 1.0 (brown) → 0.73 (grey Figma spec)
+            const opaqueAt = (1 - 0.27 * sf).toFixed(3);
+
             return (
-              <line
-                key={i}
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={`url(#tg-${i})`}
-                strokeWidth={1.5}
-                strokeLinecap="round"
-              />
+              <linearGradient key={i} id={`tg-${i}`} x1={gx1} y1={gy1} x2={gx2} y2={gy2} gradientUnits="userSpaceOnUse">
+                <stop stopColor={tipColor} stopOpacity={0} />
+                <stop offset={opaqueAt} stopColor={tipColor} />
+              </linearGradient>
             );
           })}
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
-              {pad(days)}
-            </Typography>
-            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
-              {':'}
-            </Typography>
-            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
-              {pad(hours)}
-            </Typography>
-            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
-              {':'}
-            </Typography>
-            <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
-              {pad(displayMinutes)}
-            </Typography>
-          </div>
-          <Typography type="label" size="S" color={colorRoles.content.tertiary} style={{ whiteSpace: 'nowrap' }}>
-            before draw
-          </Typography>
-        </div>
+        </defs>
+        {Array.from({ length: TICK_COUNT }, (_, i) => {
+          const angle = (i * 2 * Math.PI) / TICK_COUNT;
+          const ccwPos = (TICK_COUNT - i) % TICK_COUNT;
+          let sf: number;
+          if (variant === 'pulse') {
+            sf = Math.max(0, Math.min(1, (weekProgress - ccwPos) / FADE_TICKS));
+          } else if (variant === 'classic') {
+            sf = isResetting
+              ? 1 - resetEased
+              : Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+          } else if (minuteParity === 0) {
+            sf = Math.max(0, Math.min(1, (effectiveProgress - ccwPos) / FADE_TICKS));
+          } else {
+            sf = Math.max(0, Math.min(1, 1 - (effectiveProgress - ccwPos) / FADE_TICKS));
+          }
+          const rOuter = R_OUTER_FULL + (R_OUTER_SHORT - R_OUTER_FULL) * sf;
+          const x1 = CX_CLOCK + R_INNER_CLOCK * Math.sin(angle);
+          const y1 = CY_CLOCK - R_INNER_CLOCK * Math.cos(angle);
+          const x2 = CX_CLOCK + rOuter * Math.sin(angle);
+          const y2 = CY_CLOCK - rOuter * Math.cos(angle);
+          return (
+            <line
+              key={i}
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={`url(#tg-${i})`}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </svg>
+  );
+
+  const clockText = (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+          {pad(days)}
+        </Typography>
+        <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
+          {':'}
+        </Typography>
+        <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+          {pad(hours)}
+        </Typography>
+        <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap', opacity: totalSecondsElapsed % 2 === 0 ? 1 : 0, transition: 'opacity 0.15s ease-in-out', padding: '0 2px' }}>
+          {':'}
+        </Typography>
+        <Typography type="bodyStrong" size="L" color={colorRoles.content.primary} style={{ whiteSpace: 'nowrap' }}>
+          {pad(displayMinutes)}
+        </Typography>
+      </div>
+      <Typography type="label" size="S" color={colorRoles.content.tertiary} style={{ whiteSpace: 'nowrap' }}>
+        before draw
+      </Typography>
+    </div>
+  );
+
+  return (
+    <div style={{ flexShrink: 0 }}>
+      <div style={{ width: CLOCK_W, height: CLOCK_H, borderRadius: 20, position: 'relative' }}>
+        {variant === 'pulse' ? (
+          // Only the tick ring pulses — text stays still.
+          // Uses slow3 (1000ms) × 2 for a calm ~2s breathing cycle.
+          <motion.div
+            style={{ position: 'absolute', inset: 0 }}
+            animate={{ scale: [1, 1.06, 1], opacity: [1, 0.55, 1] }}
+            transition={{ duration: MotionDuration.slow3 * 2 / 1000, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            {tickSvg}
+          </motion.div>
+        ) : tickSvg}
+        {clockText}
       </div>
     </div>
   );
+};
+
+// ─── Weekly draw schedule ──────────────────────────────────────────────────────
+// Draw goes live every Monday at 12:00 UTC. Change the day (1 = Mon … 0 = Sun)
+// or hour to match the real launch cadence.
+const DRAW_DAY_UTC = 1;  // Monday
+const DRAW_HOUR_UTC = 12;
+
+const getNextWeeklyDrawTarget = (): Date => {
+  const now = new Date();
+  // Candidate: this week's draw day at the draw hour
+  const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DRAW_HOUR_UTC, 0, 0, 0));
+  let daysAhead = (DRAW_DAY_UTC - now.getUTCDay() + 7) % 7;
+  if (daysAhead === 0 && now.getTime() >= candidate.getTime()) {
+    daysAhead = 7; // this week's draw already passed — use next week's
+  }
+  candidate.setUTCDate(candidate.getUTCDate() + daysAhead);
+  return candidate;
+};
+
+const getTimeUntilTarget = (target: Date) => {
+  const totalMinutes = Math.max(0, Math.floor((target.getTime() - Date.now()) / 60000));
+  return {
+    days: Math.floor(totalMinutes / (60 * 24)),
+    hours: Math.floor((totalMinutes % (60 * 24)) / 60),
+    minutes: totalMinutes % 60,
+  };
 };
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
@@ -974,9 +1032,11 @@ export const SavingsScreen: React.FC = () => {
     const state = location.state as { didntWinBanner?: boolean } | null;
     return state?.didntWinBanner === true;
   });
-  const [clockVariant, setClockVariant] = useState<'classic' | 'alternating'>(() => {
+  const [clockVariant, setClockVariant] = useState<'classic' | 'alternating' | 'pulse'>(() => {
     const state = location.state as { clockVariant?: string } | null;
-    return state?.clockVariant === 'alternating' ? 'alternating' : 'classic';
+    if (state?.clockVariant === 'alternating') return 'alternating';
+    if (state?.clockVariant === 'pulse') return 'pulse';
+    return 'classic';
   });
   const [savingsVariant, setSavingsVariant] = useState<'v1' | 'v2'>(() => {
     const state = location.state as { savingsVariant?: string } | null;
@@ -1008,27 +1068,12 @@ export const SavingsScreen: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered]);
 
-  const drawTargetRef = useRef<Date | null>(null);
-  if (drawTargetRef.current === null) {
-    const t = new Date();
-    t.setDate(t.getDate() + 2);
-    t.setHours(t.getHours() + 17);
-    t.setMinutes(t.getMinutes() + 31);
-    drawTargetRef.current = t;
-  }
-  const [countdown, setCountdown] = useState(() => ({ days: 2, hours: 17, minutes: 31 }));
+  const drawTargetRef = useRef<Date>(getNextWeeklyDrawTarget());
+  const [countdown, setCountdown] = useState(() => getTimeUntilTarget(drawTargetRef.current));
   useEffect(() => {
-    const target = drawTargetRef.current!;
-    const id = setInterval(() => {
-      const diff = target.getTime() - Date.now();
-      const totalMinutes = Math.max(0, Math.floor(diff / 60000));
-      setCountdown({
-        days: Math.floor(totalMinutes / (60 * 24)),
-        hours: Math.floor((totalMinutes % (60 * 24)) / 60),
-        minutes: totalMinutes % 60,
-      });
-    }, 60000);
+    const id = setInterval(() => setCountdown(getTimeUntilTarget(drawTargetRef.current)), 60000);
     return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Clear navigation state on return from deposit so a refresh doesn't re-trigger entered state.
@@ -1051,7 +1096,7 @@ export const SavingsScreen: React.FC = () => {
       setDidntWinBanner(state.didntWinBanner);
       navigate(location.pathname, { replace: true, state: null });
     } else if (state?.clockVariant !== undefined) {
-      setClockVariant(state.clockVariant as 'classic' | 'alternating');
+      setClockVariant(state.clockVariant as 'classic' | 'alternating' | 'pulse');
       navigate(location.pathname, { replace: true, state: null });
     } else if (state?.savingsVariant !== undefined) {
       setSavingsVariant(state.savingsVariant === 'v2' ? 'v2' : 'v1');
@@ -1201,7 +1246,7 @@ export const SavingsScreen: React.FC = () => {
                       <Button label="Enter the draw" variant="primary" size="M" fullWidth onPress={handleEnterDraw} />
                     )}
                   </VStack>
-                  <CountdownClock days={countdown.days} hours={countdown.hours} minutes={countdown.minutes} variant={clockVariant} />
+                  <CountdownClock days={countdown.days} hours={countdown.hours} minutes={countdown.minutes} variant={clockVariant} drawTarget={drawTargetRef.current} />
                 </HStack>
               </div>
 

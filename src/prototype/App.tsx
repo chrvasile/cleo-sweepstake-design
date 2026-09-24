@@ -75,53 +75,6 @@ const VariantChip: React.FC<{ label: string; active: boolean; onClick: () => voi
   </motion.button>
 );
 
-const LabelledToggle: React.FC<{ label: string; active: boolean; onToggle: () => void }> = ({ label, active, onToggle }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.XXS, height: 32 }}>
-    <span style={{
-      fontFamily: fontFamilies.body,
-      fontSize: typographySizeMap.S.label,
-      fontWeight: fontWeights.SemiBold,
-      color: colorRoles.content.primary,
-      whiteSpace: 'nowrap',
-    }}>
-      {label}
-    </span>
-    <motion.button
-      type="button"
-      role="switch"
-      aria-checked={active}
-      onClick={onToggle}
-      whileTap={{ scale: 0.93 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      style={{
-        width: 40,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: active ? colorRoles.background.accentDark : colorRoles.border.default,
-        border: 'none',
-        cursor: 'pointer',
-        padding: 3,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: active ? 'flex-end' : 'flex-start',
-        transition: 'background-color 0.2s ease',
-        flexShrink: 0,
-      }}
-    >
-      <motion.div
-        layout
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          backgroundColor: colorRoles.background.primary,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-        }}
-      />
-    </motion.button>
-  </div>
-);
 
 type WealthHomeVariant = 'v1' | 'v1-bottom-banner' | 'v1-card-bottom';
 type SavingsVariant = 'v1' | 'v2';
@@ -135,7 +88,7 @@ const PrototypeApp: React.FC = () => {
   const [wealthHomeVariant, setWealthHomeVariant] = useState<WealthHomeVariant>('v1');
   const [savingsVariant, setSavingsVariant] = useState<SavingsVariant>('v1');
   const [savingsState, setSavingsState] = useState<SavingsState>('not-entered');
-  const [clockVariant, setClockVariant] = useState<'classic' | 'alternating'>('classic');
+  const [clockVariant, setClockVariant] = useState<'classic' | 'alternating' | 'pulse'>('classic');
   const [winnerVariant, setWinnerVariant] = useState<WinnerVariant>('simple');
   const navigate = useNavigate();
   const location = useLocation();
@@ -175,10 +128,9 @@ const PrototypeApp: React.FC = () => {
     if (firstScreen) navigate(firstScreen.routePath);
   };
 
-  const handleToggleClockVariant = () => {
-    const next: 'classic' | 'alternating' = clockVariant === 'classic' ? 'alternating' : 'classic';
-    setClockVariant(next);
-    navigate('/savings', { state: { clockVariant: next } });
+  const handleClockVariantChange = (variant: 'classic' | 'alternating' | 'pulse') => {
+    setClockVariant(variant);
+    navigate('/savings', { state: { clockVariant: variant } });
   };
 
   const handleWealthHomeVariantChange = (variant: WealthHomeVariant) => {
@@ -256,7 +208,18 @@ const PrototypeApp: React.FC = () => {
             <span style={{ fontFamily: fontFamilies.body, fontSize: 9, fontWeight: fontWeights.SemiBold, color: colorRoles.content.tertiary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Clock
             </span>
-            <LabelledToggle label="Alt. sweep" active={clockVariant === 'alternating'} onToggle={handleToggleClockVariant} />
+            {([
+              { value: 'classic', label: 'Standard' },
+              { value: 'alternating', label: 'Alternate' },
+              { value: 'pulse', label: 'Pulse' },
+            ] as { value: 'classic' | 'alternating' | 'pulse'; label: string }[]).map(({ value, label }) => (
+              <VariantChip
+                key={value}
+                label={label}
+                active={clockVariant === value}
+                onClick={() => handleClockVariantChange(value)}
+              />
+            ))}
             <OverlayTriggerButton label="Skip to 55s" onClick={() => window.dispatchEvent(new CustomEvent('cleo:fastforward'))} />
           </div>
           {selectedDate === 'v1' && (
